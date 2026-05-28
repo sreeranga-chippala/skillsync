@@ -1,8 +1,5 @@
 import axios from "axios";
 
-import { BACKEND_URL }
-from "../config";
-
 import {
   useEffect,
   useRef,
@@ -48,6 +45,21 @@ function InterviewRoom() {
   const [message, setMessage] =
     useState("");
 
+  const [language, setLanguage] =
+    useState("javascript");
+
+  const [code, setCode] =
+    useState("");
+
+  const [output, setOutput] =
+    useState("");
+
+  const [logic, setLogic] =
+    useState("");
+
+  const [loaded, setLoaded] =
+    useState(false);
+
   const defaultCodes = {
 
     javascript:
@@ -63,36 +75,24 @@ using namespace std;
 
 int main() {
 
-    cout << "Hello SkillSync";
+  cout << "Hello SkillSync";
 
-    return 0;
+  return 0;
 
 }`,
 
     java:
 `class Main {
 
-    public static void main(String[] args) {
+  public static void main(String[] args) {
 
-        System.out.println("Hello SkillSync");
+    System.out.println("Hello SkillSync");
 
-    }
+  }
 
 }`
 
   };
-
-  const [language, setLanguage] =
-    useState("");
-
-  const [code, setCode] =
-    useState("");
-
-  const [output, setOutput] =
-    useState("");
-
-  const [logic, setLogic] =
-    useState("");
 
   const user = {
 
@@ -110,7 +110,7 @@ int main() {
 
   useEffect(() => {
 
-    const init =
+    const initCamera =
       async () => {
 
         try {
@@ -147,7 +147,7 @@ int main() {
 
       };
 
-    init();
+    initCamera();
 
   }, []);
 
@@ -168,33 +168,34 @@ int main() {
       const pc =
         new RTCPeerConnection({
 
-         iceServers: [
+          iceServers: [
 
-  {
-    urls:
-      "stun:stun.l.google.com:19302"
-  },
+            {
+              urls:
+                "stun:stun.l.google.com:19302"
+            },
 
-  {
-    urls: [
+            {
 
-      "turn:openrelay.metered.ca:80",
+              urls: [
 
-      "turn:openrelay.metered.ca:443",
+                "turn:openrelay.metered.ca:80",
 
-      "turn:openrelay.metered.ca:443?transport=tcp"
+                "turn:openrelay.metered.ca:443",
 
-    ],
+                "turn:openrelay.metered.ca:443?transport=tcp"
 
-    username:
-      "openrelayproject",
+              ],
 
-    credential:
-      "openrelayproject"
+              username:
+                "openrelayproject",
 
-  }
+              credential:
+                "openrelayproject"
 
-]
+            }
+
+          ]
 
         });
 
@@ -286,7 +287,9 @@ int main() {
         );
 
         socketRef.current.emit(
+
           "offer",
+
           {
 
             targetSocketId,
@@ -294,6 +297,7 @@ int main() {
             offer
 
           }
+
         );
 
       }
@@ -305,32 +309,58 @@ int main() {
   useEffect(() => {
 
     socketRef.current =
-      io(BACKEND_URL);
+      io(
+
+        window.location.origin,
+
+        {
+
+          transports:
+            ["websocket"]
+
+        }
+
+      );
 
     const socket =
       socketRef.current;
 
     /* LOAD CHAT */
 
-    axios
-      .get(
-        `${BACKEND_URL}/messages/${roomId}`
-      )
+    const fetchMessages =
+      async () => {
 
-      .then((res) => {
+        try {
 
-        setMessages(
-          res.data
-        );
+          const response =
+            await axios.get(
 
-      })
+              `/messages/${roomId}`
 
-      .catch(console.log);
+            );
+
+          setMessages(
+            response.data
+          );
+
+        }
+
+        catch (err) {
+
+          console.log(err);
+
+        }
+
+      };
+
+    fetchMessages();
 
     /* JOIN */
 
     socket.emit(
+
       "join-room",
+
       {
 
         roomId,
@@ -338,11 +368,13 @@ int main() {
         user
 
       }
+
     );
 
     /* ROOM STATE */
 
     socket.on(
+
       "room-state",
 
       (data) => {
@@ -365,19 +397,25 @@ int main() {
           data.output || ""
         );
 
+        setLoaded(true);
+
       }
+
     );
 
     /* USERS */
 
     socket.on(
+
       "existing-users",
+
       async (users) => {
 
         const filtered =
           users.filter(
             (u) =>
-              u.name !== user.name
+              u.socketId !==
+              socket.id
           );
 
         setParticipants(
@@ -397,16 +435,20 @@ int main() {
         }
 
       }
+
     );
 
     socket.on(
+
       "participants-update",
+
       (users) => {
 
         const filtered =
           users.filter(
             (u) =>
-              u.name !== user.name
+              u.socketId !==
+              socket.id
           );
 
         setParticipants(
@@ -414,12 +456,15 @@ int main() {
         );
 
       }
+
     );
 
     /* OFFER */
 
     socket.on(
+
       "offer",
+
       async ({
         offer,
         senderSocketId
@@ -436,9 +481,11 @@ int main() {
           ];
 
         await pc.setRemoteDescription(
+
           new RTCSessionDescription(
             offer
           )
+
         );
 
         const answer =
@@ -449,7 +496,9 @@ int main() {
         );
 
         socket.emit(
+
           "answer",
+
           {
 
             targetSocketId:
@@ -458,15 +507,19 @@ int main() {
             answer
 
           }
+
         );
 
       }
+
     );
 
     /* ANSWER */
 
     socket.on(
+
       "answer",
+
       async ({
         answer,
         senderSocketId
@@ -481,18 +534,23 @@ int main() {
           return;
 
         await pc.setRemoteDescription(
+
           new RTCSessionDescription(
             answer
           )
+
         );
 
       }
+
     );
 
     /* ICE */
 
     socket.on(
+
       "ice-candidate",
+
       async ({
         candidate,
         senderSocketId
@@ -507,34 +565,47 @@ int main() {
           return;
 
         await pc.addIceCandidate(
+
           new RTCIceCandidate(
             candidate
           )
+
         );
 
       }
+
     );
 
     /* CHAT */
 
     socket.on(
+
       "receive-message",
+
       (msg) => {
 
         setMessages(
+
           (prev) => [
+
             ...prev,
+
             msg
+
           ]
+
         );
 
       }
+
     );
 
     /* EDITOR */
 
     socket.on(
+
       "sync-editor",
+
       (data) => {
 
         setCode(
@@ -546,28 +617,35 @@ int main() {
         );
 
       }
-    );
 
-    /* OUTPUT */
-
-    socket.on(
-      "sync-output",
-      (data) => {
-
-        setOutput(data);
-
-      }
     );
 
     /* LOGIC */
 
     socket.on(
+
       "sync-logic",
+
       (data) => {
 
         setLogic(data);
 
       }
+
+    );
+
+    /* OUTPUT */
+
+    socket.on(
+
+      "sync-output",
+
+      (data) => {
+
+        setOutput(data);
+
+      }
+
     );
 
     return () => {
@@ -577,6 +655,93 @@ int main() {
     };
 
   }, []);
+
+  /* EDITOR SYNC */
+
+  useEffect(() => {
+
+    if (!loaded)
+      return;
+
+    socketRef.current?.emit(
+
+      "editor-change",
+
+      {
+
+        roomId,
+
+        code,
+
+        language
+
+      }
+
+    );
+
+  }, [
+
+    code,
+    language,
+    loaded
+
+  ]);
+
+  /* LOGIC SYNC */
+
+  useEffect(() => {
+
+    if (!loaded)
+      return;
+
+    socketRef.current?.emit(
+
+      "logic-change",
+
+      {
+
+        roomId,
+
+        logic
+
+      }
+
+    );
+
+  }, [
+
+    logic,
+    loaded
+
+  ]);
+
+  /* OUTPUT SYNC */
+
+  useEffect(() => {
+
+    if (!loaded)
+      return;
+
+    socketRef.current?.emit(
+
+      "output-change",
+
+      {
+
+        roomId,
+
+        output
+
+      }
+
+    );
+
+  }, [
+
+    output,
+    loaded
+
+  ]);
 
   /* RUN */
 
@@ -588,7 +753,7 @@ int main() {
         const response =
           await axios.post(
 
-  `${BACKEND_URL}/run`,
+            "/run",
 
             {
 
@@ -602,20 +767,6 @@ int main() {
 
         setOutput(
           response.data.output
-        );
-
-        socketRef.current.emit(
-          "output-change",
-
-          {
-
-            roomId,
-
-            output:
-              response.data.output
-
-          }
-
         );
 
       }
@@ -878,37 +1029,12 @@ int main() {
 
                   }
 
-                  <h3
-                    style={{
-                      marginTop: "12px"
-                    }}
-                  >
-
-                    {
-
-                      remoteUser
-
-                      ?
-
-                      participants.find(
-                        (p) =>
-                          p.socketId ===
-                          remoteUser.socketId
-                      )?.name
-
-                      :
-
-                      `Interviewer ${index + 1}`
-
-                    }
-
-                  </h3>
-
                 </div>
 
               );
 
             }
+
           )
 
         }
@@ -976,6 +1102,7 @@ int main() {
             {
 
               messages.map(
+
                 (
                   msg,
                   index
@@ -1016,6 +1143,7 @@ int main() {
                   </div>
 
                 )
+
               )
 
             }
@@ -1118,89 +1246,69 @@ int main() {
 
             <select
 
-  value={language}
+              value={language}
 
-  onChange={(e) => {
+              onChange={(e) => {
 
-    const newLanguage =
-      e.target.value;
+                const newLanguage =
+                  e.target.value;
 
-    const starterCode =
-      defaultCodes[
-        newLanguage
-      ];
+                const starterCode =
+                  defaultCodes[
+                    newLanguage
+                  ];
 
-    /* UPDATE LOCAL */
+                setLanguage(
+                  newLanguage
+                );
 
-    setLanguage(
-      newLanguage
-    );
+                setCode(
+                  starterCode
+                );
 
-    setCode(
-      starterCode
-    );
+              }}
 
-    /* REALTIME SYNC */
+              style={{
 
-    socketRef.current.emit(
+                padding: "12px",
 
-      "editor-change",
+                fontSize: "18px",
 
-      {
+                borderRadius:
+                  "10px",
 
-        roomId,
+                border: "none",
 
-        code:
-          starterCode,
+                outline: "none",
 
-        language:
-          newLanguage
+                background:
+                  "#1e293b",
 
-      }
+                color: "white",
 
-    );
+                cursor: "pointer"
 
-  }}
+              }}
 
-  style={{
+            >
 
-    padding: "12px",
+              <option value="javascript">
+                JavaScript
+              </option>
 
-    fontSize: "18px",
+              <option value="python">
+                Python
+              </option>
 
-    borderRadius: "10px",
+              <option value="cpp">
+                C++
+              </option>
 
-    border: "none",
+              <option value="java">
+                Java
+              </option>
 
-    outline: "none",
-
-    background: "#1e293b",
-
-    color: "white",
-
-    cursor: "pointer"
-
-  }}
-
->
-
-  <option value="javascript">
-    JavaScript
-  </option>
-
-  <option value="python">
-    Python
-  </option>
-
-  <option value="cpp">
-    C++
-  </option>
-
-  <option value="java">
-    Java
-  </option>
-
-</select>
+            </select>
 
             <button
 
@@ -1246,22 +1354,6 @@ int main() {
             onChange={(value) => {
 
               setCode(value);
-
-              socketRef.current.emit(
-
-                "editor-change",
-
-                {
-
-                  roomId,
-
-                  code: value,
-
-                  language
-
-                }
-
-              );
 
             }}
 
@@ -1351,21 +1443,6 @@ int main() {
 
             setLogic(
               e.target.value
-            );
-
-            socketRef.current.emit(
-
-              "logic-change",
-
-              {
-
-                roomId,
-
-                logic:
-                  e.target.value
-
-              }
-
             );
 
           }}
