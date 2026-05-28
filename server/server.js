@@ -228,6 +228,15 @@ io.on(
 
         );
 
+socket.on("disconnect", () => {
+
+  io.to(roomId).emit(
+    "user-disconnected",
+    socket.id
+  );
+
+});
+
       }
     );
 
@@ -833,12 +842,3 @@ server.listen(
 
   }
 );
-
-socket.on("disconnect", () => {
-
-  io.to(roomId).emit(
-    "user-disconnected",
-    socket.id
-  );
-
-});
