@@ -33,6 +33,9 @@ function InterviewRoom() {
   const peerConnections =
     useRef({});
 
+  const initialLoadDone =
+  useRef(false);
+
   const [participants, setParticipants] =
     useState([]);
 
@@ -56,9 +59,6 @@ function InterviewRoom() {
 
   const [logic, setLogic] =
     useState("");
-
-  const [loaded, setLoaded] =
-    useState(false);
 
   const defaultCodes = {
 
@@ -375,33 +375,44 @@ int main() {
 
     socket.on(
 
-      "room-state",
+  "room-state",
 
-      (data) => {
+  (data) => {
 
-        setCode(
-          data.code ||
-          defaultCodes.javascript
-        );
+    initialLoadDone.current =
+      true;
 
-        setLanguage(
-          data.language ||
-          "javascript"
-        );
+    setCode(
 
-        setLogic(
-          data.logic || ""
-        );
+      data.code ||
 
-        setOutput(
-          data.output || ""
-        );
-
-        setLoaded(true);
-
-      }
+      defaultCodes.javascript
 
     );
+
+    setLanguage(
+
+      data.language ||
+
+      "javascript"
+
+    );
+
+    setLogic(
+
+      data.logic || ""
+
+    );
+
+    setOutput(
+
+      data.output || ""
+
+    );
+
+  }
+
+);
 
     /* USERS */
 
@@ -660,88 +671,87 @@ int main() {
 
   useEffect(() => {
 
-    if (!loaded)
-      return;
+  if (
+    !initialLoadDone.current
+  ) return;
 
-    socketRef.current?.emit(
+  socketRef.current?.emit(
 
-      "editor-change",
+    "editor-change",
 
-      {
+    {
 
-        roomId,
+      roomId,
 
-        code,
+      code,
 
-        language
+      language
 
-      }
+    }
 
-    );
+  );
 
-  }, [
+}, [
 
-    code,
-    language,
-    loaded
+  code,
+  language
 
-  ]);
+]);
 
   /* LOGIC SYNC */
 
   useEffect(() => {
 
-    if (!loaded)
-      return;
+  if (
+    !initialLoadDone.current
+  ) return;
 
-    socketRef.current?.emit(
+  socketRef.current?.emit(
 
-      "logic-change",
+    "logic-change",
 
-      {
+    {
 
-        roomId,
+      roomId,
 
-        logic
+      logic
 
-      }
+    }
 
-    );
+  );
 
-  }, [
+}, [
 
-    logic,
-    loaded
+  logic
 
-  ]);
-
+]);
   /* OUTPUT SYNC */
 
   useEffect(() => {
 
-    if (!loaded)
-      return;
+  if (
+    !initialLoadDone.current
+  ) return;
 
-    socketRef.current?.emit(
+  socketRef.current?.emit(
 
-      "output-change",
+    "output-change",
 
-      {
+    {
 
-        roomId,
+      roomId,
 
-        output
+      output
 
-      }
+    }
 
-    );
+  );
 
-  }, [
+}, [
 
-    output,
-    loaded
+  output
 
-  ]);
+]);
 
   /* RUN */
 

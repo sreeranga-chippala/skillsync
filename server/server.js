@@ -17,18 +17,48 @@ dotenv.config();
 const app = express();
 
 const server = http.createServer(app);
+const io = new Server(
 
-const io = new Server(server, {
+  server,
 
-  cors: {
-    origin: "*"
+  {
+
+    cors: {
+
+      origin: "*",
+
+      methods: [
+
+        "GET",
+        "POST"
+
+      ]
+
+    }
+
   }
 
-});
-
+);
 /* MIDDLEWARE */
 
-app.use(cors());
+app.use(
+
+  cors({
+
+    origin: "*",
+
+    methods: [
+
+      "GET",
+      "POST"
+
+    ],
+
+    credentials: true
+
+  })
+
+);
 
 app.use(express.json());
 
