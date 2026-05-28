@@ -113,49 +113,52 @@ int main() {
 
   /* CAMERA */
 
-  useEffect(() => {
+useEffect(() => {
 
-    const initCamera =
-      async () => {
+  const initCamera =
+    async () => {
 
-        try {
+      try {
 
-          const stream =
-            await navigator
-              .mediaDevices
-              .getUserMedia({
+        const stream =
+          await navigator
+            .mediaDevices
+            .getUserMedia({
 
-                video: true,
+              video: true,
 
-                audio: true
+              audio: true
 
-              });
+            });
 
-          localStreamRef.current =
+        localStreamRef.current =
+          stream;
+
+        if (
+          localVideoRef.current
+        ) {
+
+          localVideoRef.current.srcObject =
             stream;
 
-          if (
-            localVideoRef.current
-          ) {
-
-            localVideoRef.current.srcObject =
-              stream;
-
-          }
-
         }
 
-        catch (err) {
+      }
 
-          console.log(err);
+      catch (err) {
 
-        }
+        console.log(
+          "Camera Error:",
+          err
+        );
 
-      };
+      }
 
-    initCamera();
+    };
 
-  }, []);
+  initCamera();
+
+}, []);
 
   /* AUTO SCROLL */
 
@@ -173,154 +176,188 @@ int main() {
   /* PEER */
 
   const createPeerConnection =
-    async (
-      targetSocketId,
-      createOffer = false
-    ) => {
+  async (
+    targetSocketId,
+    createOffer = false
+  ) => {
 
-      let pc =
-        peerConnections.current[
-          targetSocketId
-        ];
-
-      if (pc)
-        return pc;
-
-      pc =
-        new RTCPeerConnection({
-
-          iceServers: [
-
-            {
-
-              urls:
-                "stun:stun.l.google.com:19302"
-
-            },
-
-            {
-
-              urls: [
-
-                "turn:openrelay.metered.ca:80",
-
-                "turn:openrelay.metered.ca:443",
-
-                "turn:openrelay.metered.ca:443?transport=tcp"
-
-              ],
-
-              username:
-                "openrelayproject",
-
-              credential:
-                "openrelayproject"
-
-            }
-
-          ]
-
-        });
-
+    if (
       peerConnections.current[
         targetSocketId
-      ] = pc;
+      ]
+    ) {
 
-      /* LOCAL TRACKS */
+      return peerConnections.current[
+        targetSocketId
+      ];
 
-      if (
-        localStreamRef.current
-      ) {
+    }
 
-        localStreamRef.current
-          .getTracks()
-          .forEach((track) => {
+    const pc =
+      new RTCPeerConnection({
 
-            pc.addTrack(
+        iceServers: [
 
-              track,
+          {
 
-              localStreamRef.current
+            urls:
+              "stun:stun.l.google.com:19302"
 
-            );
+          },
 
-          });
+          {
 
-      }
+            urls: [
 
-      /* REMOTE STREAM */
+              "turn:openrelay.metered.ca:80",
 
-      pc.ontrack =
-        (event) => {
+              "turn:openrelay.metered.ca:443",
 
-          const remoteStream =
-            event.streams[0];
+              "turn:openrelay.metered.ca:443?transport=tcp"
 
-          setRemoteStreams(
-            (prev) => {
+            ],
 
-              const filtered =
-                prev.filter(
+            username:
+              "openrelayproject",
 
-                  (p) =>
-
-                    p.socketId !==
-                    targetSocketId
-
-                );
-
-              return [
-
-                ...filtered,
-
-                {
-
-                  socketId:
-                    targetSocketId,
-
-                  stream:
-                    remoteStream
-
-                }
-
-              ];
-
-            }
-          );
-
-        };
-
-      /* ICE */
-
-      pc.onicecandidate =
-        (event) => {
-
-          if (
-            event.candidate
-          ) {
-
-            socketRef.current.emit(
-
-              "ice-candidate",
-
-              {
-
-                targetSocketId,
-
-                candidate:
-                  event.candidate
-
-              }
-
-            );
+            credential:
+              "openrelayproject"
 
           }
 
-        };
+        ]
 
-      /* OFFER */
+      });
 
-      if (createOffer) {
+    peerConnections.current[
+      targetSocketId
+    ] = pc;
+
+    /* WAIT FOR STREAM */
+
+    if (
+      localStreamRef.current
+    ) {
+
+      localStreamRef.current
+        .getTracks()
+        .forEach((track) => {
+
+          pc.addTrack(
+
+            track,
+
+            localStreamRef.current
+
+          );
+
+        });
+
+    }
+
+    /* REMOTE */
+
+    pc.ontrack =
+      (event) => {
+
+        const remoteStream =
+          event.streams[0];
+
+        setRemoteStreams(
+          (prev) => {
+
+            const exists =
+              prev.find(
+
+                (p) =>
+
+                  p.socketId ===
+                  targetSocketId
+
+              );
+
+            if (exists) {
+
+              return prev.map(
+
+                (p) =>
+
+                  p.socketId ===
+                  targetSocketId
+
+                  ?
+
+                  {
+
+                    ...p,
+
+                    stream:
+                      remoteStream
+
+                  }
+
+                  :
+
+                  p
+
+              );
+
+            }
+
+            return [
+
+              ...prev,
+
+              {
+
+                socketId:
+                  targetSocketId,
+
+                stream:
+                  remoteStream
+
+              }
+
+            ];
+
+          }
+        );
+
+      };
+
+    /* ICE */
+
+    pc.onicecandidate =
+      (event) => {
+
+        if (
+          event.candidate
+        ) {
+
+          socketRef.current.emit(
+
+            "ice-candidate",
+
+            {
+
+              targetSocketId,
+
+              candidate:
+                event.candidate
+
+            }
+
+          );
+
+        }
+
+      };
+
+    /* OFFER */
+
+    if (createOffer) {
+
+      try {
 
         const offer =
           await pc.createOffer();
@@ -345,10 +382,17 @@ int main() {
 
       }
 
-      return pc;
+      catch (err) {
 
-    };
+        console.log(err);
 
+      }
+
+    }
+
+    return pc;
+
+  };
   /* SOCKET */
 
   useEffect(() => {
@@ -487,10 +531,24 @@ int main() {
               socket.id
 
           );
-
         setParticipants(
-          filtered
-        );
+
+  Array.from(
+
+    new Map(
+
+      filtered.map(
+        (p) => [
+          p.socketId,
+          p
+        ]
+      )
+
+    ).values()
+
+  )
+
+);
 
         for (
           const participant
@@ -840,7 +898,8 @@ int main() {
           pc.close()
 
       );
-
+      setRemoteStreams([]);
+setParticipants([]);
       socket.disconnect();
 
     };
@@ -1067,6 +1126,9 @@ int main() {
 
           <video
 
+  muted={false}
+
+  controls={false}
             ref={localVideoRef}
 
             autoPlay
