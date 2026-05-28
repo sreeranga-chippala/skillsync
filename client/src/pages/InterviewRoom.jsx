@@ -283,7 +283,7 @@ int main() {
   useEffect(() => {
 
     socketRef.current =
-      io("http://13.49.34.10:5001");
+      io("https://scalping-monument-unified.ngrok-free.dev/");
 
     const socket =
       socketRef.current;
@@ -292,7 +292,7 @@ int main() {
 
     axios
       .get(
-        `http://13.49.34.10:5001/messages/${roomId}`
+        `https://scalping-monument-unified.ngrok-free.dev/messages/${roomId}`
       )
 
       .then((res) => {
@@ -566,7 +566,7 @@ int main() {
         const response =
           await axios.post(
 
-            "http://13.49.34.10:5001/run",
+            "https://scalping-monument-unified.ngrok-free.dev/",
 
             {
 
