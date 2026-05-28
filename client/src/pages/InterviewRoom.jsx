@@ -615,12 +615,9 @@ socket.emit(
         );
 
         await createPeerConnection(
-
-          participant.socketId,
-
-          true
-
-        );
+  participant.socketId,
+  false
+);
 
       }
 
