@@ -283,7 +283,7 @@ int main() {
   useEffect(() => {
 
     socketRef.current =
-      io("http://localhost:5001");
+      io("http://13.49.34.10:5001");
 
     const socket =
       socketRef.current;
@@ -292,7 +292,7 @@ int main() {
 
     axios
       .get(
-        `http://localhost:5001/messages/${roomId}`
+        `http://13.49.34.10:5001/messages/${roomId}`
       )
 
       .then((res) => {
@@ -566,7 +566,7 @@ int main() {
         const response =
           await axios.post(
 
-            "http://localhost:5001/run",
+            "http://13.49.34.10:5001/run",
 
             {
 

@@ -41,7 +41,7 @@ const handleSubmit =
       const response =
         await axios.post(
 
-          `http://localhost:5001/api/auth/${endpoint}`,
+          `http://13.49.34.10:5001/api/auth/${endpoint}`,
 
           {
 
