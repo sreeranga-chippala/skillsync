@@ -1,7 +1,8 @@
 import {
   useState
 } from "react";
-
+import { BACKEND_URL }
+from "../config";
 import {
   useNavigate
 } from "react-router-dom";
@@ -41,7 +42,7 @@ const handleSubmit =
       const response =
         await axios.post(
 
-          `http://13.49.34.10:5001/api/auth/${endpoint}`,
+          `${BACKEND_URL}/api/auth/${endpoint}`,
 
           {
 
