@@ -111,7 +111,8 @@ int main() {
 
   };
 
-  /* CAMERA */
+ const [cameraReady, setCameraReady] =
+  useState(false);
 
 useEffect(() => {
 
@@ -143,6 +144,8 @@ useEffect(() => {
 
         }
 
+        setCameraReady(true);
+
       }
 
       catch (err) {
@@ -158,8 +161,7 @@ useEffect(() => {
 
   initCamera();
 
-}, []);
-
+}, [cameraReady]);
   /* AUTO SCROLL */
 
   useEffect(() => {
@@ -427,19 +429,22 @@ useEffect(() => {
 
     /* JOIN */
 
-    socket.emit(
+    if (!cameraReady)
+  return;
 
-      "join-room",
+socket.emit(
 
-      {
+  "join-room",
 
-        roomId,
+  {
 
-        user
+    roomId,
 
-      }
+    user
 
-    );
+  }
+
+);
 
     /* LOAD CHAT */
 
