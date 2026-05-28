@@ -21,6 +21,9 @@ function InterviewRoom() {
   const { roomId } =
     useParams();
 
+  const messagesEndRef =
+  useRef(null);
+
   const socketRef =
     useRef(null);
 
@@ -150,7 +153,16 @@ int main() {
     initCamera();
 
   }, []);
+  useEffect(() => {
 
+  messagesEndRef.current
+    ?.scrollIntoView({
+
+      behavior: "smooth"
+
+    });
+
+}, [messages]);
   /* PEER */
 
   const createPeerConnection =
@@ -215,42 +227,41 @@ int main() {
         });
 
       pc.ontrack =
-        (event) => {
+  (event) => {
 
-          setRemoteStreams(
-            (prev) => {
+    setRemoteStreams(
+      (prev) => {
 
-              const exists =
-                prev.find(
-                  (p) =>
-                    p.socketId ===
-                    targetSocketId
-                );
+        const filtered =
+          prev.filter(
 
-              if (exists)
-                return prev;
+            (p) =>
 
-              return [
+              p.socketId !==
+              targetSocketId
 
-                ...prev,
-
-                {
-
-                  socketId:
-                    targetSocketId,
-
-                  stream:
-                    event.streams[0]
-
-                }
-
-              ];
-
-            }
           );
 
-        };
+        return [
 
+          ...filtered,
+
+          {
+
+            socketId:
+              targetSocketId,
+
+            stream:
+              event.streams[0]
+
+          }
+
+        ];
+
+      }
+    );
+
+  };
       pc.onicecandidate =
         (event) => {
 
@@ -316,7 +327,13 @@ int main() {
         {
 
           transports:
-            ["websocket"]
+  ["websocket"],
+
+reconnection: true,
+
+reconnectionAttempts: 10,
+
+reconnectionDelay: 1000
 
         }
 
@@ -661,7 +678,25 @@ int main() {
 
     return () => {
 
-      socket.disconnect();
+      localStreamRef.current
+  ?.getTracks()
+  .forEach(
+
+    (track) => track.stop()
+
+  );
+
+Object.values(
+
+  peerConnections.current
+
+).forEach(
+
+  (pc) => pc.close()
+
+);
+
+socket.disconnect();
 
     };
 
@@ -820,7 +855,40 @@ int main() {
       setMessage("");
 
     };
+    if (!initialLoadDone.current) {
 
+  return (
+
+    <div
+      style={{
+
+        height: "100vh",
+
+        display: "flex",
+
+        justifyContent:
+          "center",
+
+        alignItems:
+          "center",
+
+        background:
+          "#0f172a",
+
+        color: "white",
+
+        fontSize: "28px"
+
+      }}
+    >
+
+      Loading Room...
+
+    </div>
+
+  );
+
+}
   return (
 
     <div
@@ -861,7 +929,16 @@ int main() {
           display: "grid",
 
           gridTemplateColumns:
-            "1fr 1fr 1fr",
+
+  window.innerWidth < 768
+
+  ?
+
+  "1fr"
+
+  :
+
+  "1fr 1fr 1fr",
 
           gap: "20px",
 
@@ -1194,7 +1271,6 @@ int main() {
             <button
 
               onClick={sendMessage}
-
               style={{
 
                 marginLeft: "10px",
@@ -1223,7 +1299,9 @@ int main() {
           </div>
 
         </div>
-
+        <div
+            ref={messagesEndRef}
+        />
         {/* EDITOR */}
 
         <div
