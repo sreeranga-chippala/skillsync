@@ -161,7 +161,7 @@ useEffect(() => {
 
   initCamera();
 
-}, [cameraReady]);
+}, []);
   /* AUTO SCROLL */
 
   useEffect(() => {
@@ -909,7 +909,7 @@ setParticipants([]);
 
     };
 
-  }, []);
+}, [cameraReady]);
 
   /* EDITOR SYNC */
 
