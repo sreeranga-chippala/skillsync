@@ -873,279 +873,378 @@ int main() {
     };
 
   return (
+  <div
+    style={{
+      background: "#0f172a",
+      minHeight: "100vh",
+      padding: "20px",
+      color: "white",
+      fontFamily: "sans-serif"
+    }}
+  >
+    <h1
+      style={{
+        fontSize: "38px",
+        marginBottom: "20px"
+      }}
+    >
+      SkillSync Interview Room
+    </h1>
+
+    {/* TOP SECTION */}
 
     <div
       style={{
-
-        background: "#0f172a",
-
-        minHeight: "100vh",
-
-        padding:
-
-          window.innerWidth < 768
-
-          ?
-
-          "10px"
-
-          :
-
-          "20px",
-
-        color: "white",
-
-        fontFamily: "sans-serif"
-
+        display: "grid",
+        gridTemplateColumns:
+          window.innerWidth < 1200
+            ? "1fr"
+            : "2fr 1fr",
+        gap: "20px"
       }}
     >
 
-      <h1
-        style={{
+      {/* LEFT SIDE */}
 
-          marginBottom: "25px",
+      <div>
 
-          fontSize:
-
-            window.innerWidth < 768
-
-            ?
-
-            "28px"
-
-            :
-
-            "42px"
-
-        }}
-      >
-
-        SkillSync Interview Room
-
-      </h1>
-
-      {/* CAMERAS */}
-
-      <div
-        style={{
-
-          display: "grid",
-
-          gridTemplateColumns:
-
-            window.innerWidth < 1100
-
-            ?
-
-            "1fr"
-
-            :
-
-            "repeat(auto-fit, minmax(320px, 1fr))",
-
-          gap:
-
-            window.innerWidth < 768
-
-            ?
-
-            "12px"
-
-            :
-
-            "20px",
-
-          marginBottom: "25px"
-
-        }}
-      >
-
-        {/* LOCAL */}
+        {/* VIDEO SECTION */}
 
         <div
           style={{
-
-            background: "#1e293b",
-
-            borderRadius: "16px",
-
-            padding: "15px",
-
-            border:
-              "2px solid #334155"
-
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(auto-fit,minmax(280px,1fr))",
+            gap: "15px",
+            marginBottom: "20px"
           }}
         >
 
-          <video
+          {/* LOCAL VIDEO */}
 
-            ref={localVideoRef}
-
-            autoPlay
-
-            muted
-
-            playsInline
-
+          <div
             style={{
-
-              width: "100%",
-
-              height:
-
-                window.innerWidth < 768
-
-                ?
-
-                "200px"
-
-                :
-
-                "240px",
-
-              objectFit: "cover",
-
-              borderRadius: "12px",
-
-              background: "black"
-
-            }}
-
-          />
-
-          <h3
-            style={{
-              marginTop: "12px"
+              background: "#1e293b",
+              padding: "12px",
+              borderRadius: "15px",
+              border: "2px solid #334155"
             }}
           >
+            <video
+              ref={localVideoRef}
+              autoPlay
+              muted
+              playsInline
+              style={{
+                width: "100%",
+                height: "220px",
+                objectFit: "cover",
+                borderRadius: "10px",
+                background: "black"
+              }}
+            />
 
-            {user.name}
+            <h3 style={{ marginTop: "10px" }}>
+              {user.name} (You)
+            </h3>
 
-          </h3>
+            <p>{user.role}</p>
+          </div>
 
-          <p>
+          {/* REMOTE USERS */}
 
-            {user.role}
+          {remoteStreams.map((remoteUser, index) => (
+            <div
+              key={remoteUser.socketId}
+              style={{
+                background: "#1e293b",
+                padding: "12px",
+                borderRadius: "15px",
+                border: "2px solid #334155"
+              }}
+            >
+              <video
+                autoPlay
+                playsInline
+                ref={(video) => {
+                  if (video && remoteUser.stream) {
+                    video.srcObject =
+                      remoteUser.stream;
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  height: "220px",
+                  objectFit: "cover",
+                  borderRadius: "10px",
+                  background: "black"
+                }}
+              />
 
-          </p>
+              <h3 style={{ marginTop: "10px" }}>
+                {participants.find(
+                  (p) =>
+                    p.socketId ===
+                    remoteUser.socketId
+                )?.name || `User ${index + 1}`}
+              </h3>
+
+              <p>
+                {
+                  participants.find(
+                    (p) =>
+                      p.socketId ===
+                      remoteUser.socketId
+                  )?.role
+                }
+              </p>
+            </div>
+          ))}
 
         </div>
 
-        {/* REMOTE */}
+        {/* CODE EDITOR */}
 
-        {
+        <div
+          style={{
+            background: "#1e293b",
+            padding: "15px",
+            borderRadius: "15px",
+            marginBottom: "20px"
+          }}
+        >
 
-          remoteStreams.map(
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              marginBottom: "10px"
+            }}
+          >
 
-            (remoteUser, index) => (
+            <h2>Code Editor</h2>
 
-              <div
+            <select
+              value={language}
+              onChange={(e) => {
+                setLanguage(e.target.value);
+                setCode(
+                  defaultCodes[e.target.value]
+                );
+              }}
+              style={{
+                padding: "10px",
+                borderRadius: "8px"
+              }}
+            >
+              <option value="javascript">
+                JavaScript
+              </option>
 
-                key={remoteUser.socketId}
+              <option value="python">
+                Python
+              </option>
 
+              <option value="cpp">
+                C++
+              </option>
+
+              <option value="java">
+                Java
+              </option>
+            </select>
+
+          </div>
+
+          <Editor
+            height="450px"
+            language={language}
+            value={code}
+            onChange={(value) =>
+              setCode(value)
+            }
+            theme="vs-dark"
+          />
+
+          <button
+            onClick={runCode}
+            style={{
+              marginTop: "15px",
+              padding: "12px 20px",
+              background: "#2563eb",
+              border: "none",
+              color: "white",
+              borderRadius: "10px",
+              cursor: "pointer"
+            }}
+          >
+            Run Code
+          </button>
+
+        </div>
+
+        {/* TEXT EDITOR */}
+
+        <div
+          style={{
+            background: "#1e293b",
+            padding: "15px",
+            borderRadius: "15px",
+            marginBottom: "20px"
+          }}
+        >
+
+          <h2>Logic / Notes</h2>
+
+          <textarea
+            value={logic}
+            onChange={(e) =>
+              setLogic(e.target.value)
+            }
+            placeholder="Write approach, notes, algorithms..."
+            style={{
+              width: "100%",
+              height: "180px",
+              background: "#0f172a",
+              color: "white",
+              border: "1px solid #334155",
+              borderRadius: "10px",
+              padding: "15px",
+              marginTop: "10px"
+            }}
+          />
+
+        </div>
+
+        {/* OUTPUT */}
+
+        <div
+          style={{
+            background: "#1e293b",
+            padding: "15px",
+            borderRadius: "15px"
+          }}
+        >
+
+          <h2>Output Console</h2>
+
+          <pre
+            style={{
+              background: "black",
+              color: "#22c55e",
+              padding: "15px",
+              borderRadius: "10px",
+              minHeight: "120px",
+              overflowX: "auto"
+            }}
+          >
+            {output}
+          </pre>
+
+        </div>
+
+      </div>
+
+      {/* RIGHT SIDE */}
+
+      <div
+        style={{
+          background: "#1e293b",
+          borderRadius: "15px",
+          padding: "15px",
+          height: "fit-content"
+        }}
+      >
+
+        <h2>Live Chat</h2>
+
+        {/* CHAT MESSAGES */}
+
+        <div
+          style={{
+            height: "500px",
+            overflowY: "auto",
+            background: "#0f172a",
+            padding: "10px",
+            borderRadius: "10px",
+            marginBottom: "15px"
+          }}
+        >
+
+          {messages.map((msg, index) => (
+
+            <div
+              key={index}
+              style={{
+                marginBottom: "12px"
+              }}
+            >
+
+              <strong>
+                {msg.sender}
+              </strong>
+
+              <p
                 style={{
-
-                  background:
-                    "#1e293b",
-
-                  borderRadius:
-                    "16px",
-
-                  padding:
-                    "15px",
-
-                  border:
-                    "2px solid #334155"
-
+                  marginTop: "4px"
                 }}
-
               >
+                {msg.message}
+              </p>
 
-                <video
+            </div>
 
-                  autoPlay
+          ))}
 
-                  playsInline
+          <div ref={messagesEndRef} />
 
-                  ref={(video) => {
+        </div>
 
-                    if (
-                      video &&
-                      remoteUser.stream
-                    ) {
+        {/* SEND MESSAGE */}
 
-                      video.srcObject =
-                        remoteUser.stream;
+        <div
+          style={{
+            display: "flex",
+            gap: "10px"
+          }}
+        >
 
-                    }
+          <input
+            value={message}
+            onChange={(e) =>
+              setMessage(e.target.value)
+            }
+            placeholder="Type message..."
+            style={{
+              flex: 1,
+              padding: "12px",
+              borderRadius: "10px",
+              border: "none"
+            }}
+          />
 
-                  }}
+          <button
+            onClick={sendMessage}
+            style={{
+              padding: "12px 18px",
+              borderRadius: "10px",
+              border: "none",
+              background: "#2563eb",
+              color: "white",
+              cursor: "pointer"
+            }}
+          >
+            Send
+          </button>
 
-                  style={{
-
-                    width: "100%",
-
-                    height:
-
-                      window.innerWidth < 768
-
-                      ?
-
-                      "200px"
-
-                      :
-
-                      "240px",
-
-                    objectFit:
-                      "cover",
-
-                    borderRadius:
-                      "12px",
-
-                    background:
-                      "black"
-
-                  }}
-
-                />
-
-                <h3
-                  style={{
-                    marginTop: "12px"
-                  }}
-                >
-
-                  {
-
-                    participants.find(
-
-                      (p) =>
-
-                        p.socketId ===
-                        remoteUser.socketId
-
-                    )?.name ||
-
-                    `User ${index + 1}`
-
-                  }
-
-                </h3>
-
-              </div>
-
-            )
-
-          )
-
-        }
+        </div>
 
       </div>
 
     </div>
 
-  );
+  </div>
+);
 
 }
 

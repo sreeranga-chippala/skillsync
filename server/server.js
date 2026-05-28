@@ -833,3 +833,12 @@ server.listen(
 
   }
 );
+
+socket.on("disconnect", () => {
+
+  io.to(roomId).emit(
+    "user-disconnected",
+    socket.id
+  );
+
+});
