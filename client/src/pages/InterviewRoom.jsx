@@ -1,5 +1,8 @@
 import axios from "axios";
 
+import { BACKEND_URL }
+from "../config";
+
 import {
   useEffect,
   useRef,
@@ -283,7 +286,7 @@ int main() {
   useEffect(() => {
 
     socketRef.current =
-      io("https://scalping-monument-unified.ngrok-free.dev/");
+      io(BACKEND_URL);
 
     const socket =
       socketRef.current;
@@ -292,7 +295,7 @@ int main() {
 
     axios
       .get(
-        `https://scalping-monument-unified.ngrok-free.dev/messages/${roomId}`
+        `${BACKEND_URL}/messages/${roomId}`
       )
 
       .then((res) => {
@@ -566,7 +569,7 @@ int main() {
         const response =
           await axios.post(
 
-            "https://scalping-monument-unified.ngrok-free.dev/",
+            "BACKEND_URL/run",
 
             {
 
