@@ -1093,9 +1093,7 @@ setParticipants([]);
 
       </h1>
 
-      {/* CAMERA GRID */}
-
-     {/* CAMERA GRID */}
+      {/* CAMERA SECTION */}
 
 <div
 
@@ -1104,7 +1102,7 @@ setParticipants([]);
     display: "grid",
 
     gridTemplateColumns:
-      "repeat(auto-fit, minmax(320px, 1fr))",
+      "repeat(3, 1fr)",
 
     gap: "20px",
 
@@ -1114,7 +1112,7 @@ setParticipants([]);
 
 >
 
-  {/* LOCAL */}
+  {/* LOCAL USER */}
 
   <div
 
@@ -1124,7 +1122,9 @@ setParticipants([]);
 
       borderRadius: "16px",
 
-      padding: "15px"
+      padding: "15px",
+
+      minHeight: "320px"
 
     }}
 
@@ -1158,7 +1158,7 @@ setParticipants([]);
 
     <h3
       style={{
-        marginTop: "12px"
+        marginTop: "10px"
       }}
     >
 
@@ -1174,103 +1174,263 @@ setParticipants([]);
 
   </div>
 
-  {/* REMOTE USERS */}
+  {/* REMOTE 1 */}
 
   {
 
-    remoteStreams.map(
+    remoteStreams[0]
 
-      (remoteUser, index) => (
+    ?
 
-        <div
+    <div
 
-          key={remoteUser.socketId}
+      style={{
 
-          style={{
+        background:
+          "#1e293b",
 
-            background:
-              "#1e293b",
+        borderRadius:
+          "16px",
 
-            borderRadius:
-              "16px",
+        padding:
+          "15px",
 
-            padding:
-              "15px"
+        minHeight:
+          "320px"
 
-          }}
+      }}
 
-        >
+    >
 
-          <video
+      <video
 
-            autoPlay
+        autoPlay
 
-            playsInline
+        playsInline
 
-            ref={(video) => {
+        ref={(video) => {
 
-              if (
-                video &&
-                remoteUser.stream
-              ) {
+          if (
+            video &&
+            remoteStreams[0]
+          ) {
 
-                video.srcObject =
-                  remoteUser.stream;
+            video.srcObject =
+              remoteStreams[0].stream;
 
-              }
+          }
 
-            }}
+        }}
 
-            style={{
+        style={{
 
-              width: "100%",
+          width: "100%",
 
-              height: "240px",
+          height: "240px",
 
-              objectFit:
-                "cover",
+          objectFit:
+            "cover",
 
-              borderRadius:
-                "12px",
+          borderRadius:
+            "12px",
 
-              background:
-                "black"
+          background:
+            "black"
 
-            }}
+        }}
 
-          />
+      />
 
-          <h3
-            style={{
-              marginTop: "12px"
-            }}
-          >
+      <h3
+        style={{
+          marginTop: "10px"
+        }}
+      >
 
-            {
+        {
 
-              participants.find(
+          participants.find(
 
-                (p) =>
+            (p) =>
 
-                  p.socketId ===
-                  remoteUser.socketId
+              p.socketId ===
+              remoteStreams[0].socketId
 
-              )?.name ||
+          )?.name ||
 
-              `User ${index + 1}`
+          "Participant"
 
-            }
+        }
 
-          </h3>
+      </h3>
 
-        </div>
+    </div>
 
-      )
+    :
 
-    )
+    <div
+
+      style={{
+
+        background:
+          "#1e293b",
+
+        borderRadius:
+          "16px",
+
+        minHeight:
+          "320px",
+
+        display:
+          "flex",
+
+        justifyContent:
+          "center",
+
+        alignItems:
+          "center",
+
+        fontSize:
+          "22px"
+
+      }}
+
+    >
+
+      Waiting...
+
+    </div>
 
   }
 
+  {/* REMOTE 2 */}
+
+  {
+
+    remoteStreams[1]
+
+    ?
+
+    <div
+
+      style={{
+
+        background:
+          "#1e293b",
+
+        borderRadius:
+          "16px",
+
+        padding:
+          "15px",
+
+        minHeight:
+          "320px"
+
+      }}
+
+    >
+
+      <video
+
+        autoPlay
+
+        playsInline
+
+        ref={(video) => {
+
+          if (
+            video &&
+            remoteStreams[1]
+          ) {
+
+            video.srcObject =
+              remoteStreams[1].stream;
+
+          }
+
+        }}
+
+        style={{
+
+          width: "100%",
+
+          height: "240px",
+
+          objectFit:
+            "cover",
+
+          borderRadius:
+            "12px",
+
+          background:
+            "black"
+
+        }}
+
+      />
+
+      <h3
+        style={{
+          marginTop: "10px"
+        }}
+      >
+
+        {
+
+          participants.find(
+
+            (p) =>
+
+              p.socketId ===
+              remoteStreams[1].socketId
+
+          )?.name ||
+
+          "Participant"
+
+        }
+
+      </h3>
+
+    </div>
+
+    :
+
+    <div
+
+      style={{
+
+        background:
+          "#1e293b",
+
+        borderRadius:
+          "16px",
+
+        minHeight:
+          "320px",
+
+        display:
+          "flex",
+
+        justifyContent:
+          "center",
+
+        alignItems:
+          "center",
+
+        fontSize:
+          "22px"
+
+      }}
+
+    >
+
+      Waiting...
+
+    </div>
+
+  }
 </div>
 
 {/* MAIN DASHBOARD */}
@@ -1282,7 +1442,7 @@ setParticipants([]);
     display: "grid",
 
     gridTemplateColumns:
-      "320px 1fr 350px",
+      "300px 1fr 300px",
 
     gap: "20px",
 
@@ -1457,7 +1617,8 @@ setParticipants([]);
 
       borderRadius: "16px",
 
-      padding: "20px"
+      padding: "20px",
+      overflow: "hidden"
 
     }}
 
