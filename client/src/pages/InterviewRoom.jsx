@@ -227,41 +227,42 @@ int main() {
         });
 
       pc.ontrack =
-  (event) => {
+        (event) => {
 
-    setRemoteStreams(
-      (prev) => {
+          setRemoteStreams(
+            (prev) => {
 
-        const filtered =
-          prev.filter(
+              const exists =
+                prev.find(
+                  (p) =>
+                    p.socketId ===
+                    targetSocketId
+                );
 
-            (p) =>
+              if (exists)
+                return prev;
 
-              p.socketId !==
-              targetSocketId
+              return [
 
+                ...prev,
+
+                {
+
+                  socketId:
+                    targetSocketId,
+
+                  stream:
+                    event.streams[0]
+
+                }
+
+              ];
+
+            }
           );
 
-        return [
+        };
 
-          ...filtered,
-
-          {
-
-            socketId:
-              targetSocketId,
-
-            stream:
-              event.streams[0]
-
-          }
-
-        ];
-
-      }
-    );
-
-  };
       pc.onicecandidate =
         (event) => {
 
@@ -327,13 +328,7 @@ int main() {
         {
 
           transports:
-  ["websocket"],
-
-reconnection: true,
-
-reconnectionAttempts: 10,
-
-reconnectionDelay: 1000
+            ["websocket"]
 
         }
 
@@ -678,26 +673,7 @@ reconnectionDelay: 1000
 
     return () => {
 
-      localStreamRef.current
-  ?.getTracks()
-  .forEach(
-
-    (track) => track.stop()
-
-  );
-
-Object.values(
-
-  peerConnections.current
-
-).forEach(
-
-  (pc) => pc.close()
-
-);
-
-
-socket.disconnect();
+      socket.disconnect();
 
     };
 
@@ -856,40 +832,7 @@ socket.disconnect();
       setMessage("");
 
     };
-    if (!initialLoadDone.current) {
 
-  return (
-
-    <div
-      style={{
-
-        height: "100vh",
-
-        display: "flex",
-
-        justifyContent:
-          "center",
-
-        alignItems:
-          "center",
-
-        background:
-          "#0f172a",
-
-        color: "white",
-
-        fontSize: "28px"
-
-      }}
-    >
-
-      Loading Room...
-
-    </div>
-
-  );
-
-}
   return (
 
     <div
@@ -930,16 +873,7 @@ socket.disconnect();
           display: "grid",
 
           gridTemplateColumns:
-
-  window.innerWidth < 768
-
-  ?
-
-  "1fr"
-
-  :
-
-  "1fr 1fr 1fr",
+            "1fr 1fr 1fr",
 
           gap: "20px",
 
@@ -1301,8 +1235,8 @@ socket.disconnect();
 
         </div>
         <div
-            ref={messagesEndRef}
-        />
+      ref={messagesEndRef}
+/>
         {/* EDITOR */}
 
         <div
