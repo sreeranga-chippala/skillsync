@@ -1095,47 +1095,131 @@ setParticipants([]);
 
       {/* CAMERA GRID */}
 
-      <div
-        style={{
+     {/* CAMERA GRID */}
 
-          display: "grid",
+<div
 
-          gridTemplateColumns:
-            "repeat(auto-fit, minmax(320px, 1fr))",
+  style={{
 
-          gap: "20px",
+    display: "grid",
 
-          marginBottom: "25px"
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(320px, 1fr))",
 
-        }}
-      >
+    gap: "20px",
 
-        {/* LOCAL */}
+    marginBottom: "25px"
+
+  }}
+
+>
+
+  {/* LOCAL */}
+
+  <div
+
+    style={{
+
+      background: "#1e293b",
+
+      borderRadius: "16px",
+
+      padding: "15px"
+
+    }}
+
+  >
+
+    <video
+
+      ref={localVideoRef}
+
+      autoPlay
+
+      muted
+
+      playsInline
+
+      style={{
+
+        width: "100%",
+
+        height: "240px",
+
+        objectFit: "cover",
+
+        borderRadius: "12px",
+
+        background: "black"
+
+      }}
+
+    />
+
+    <h3
+      style={{
+        marginTop: "12px"
+      }}
+    >
+
+      {user.name}
+
+    </h3>
+
+    <p>
+
+      {user.role}
+
+    </p>
+
+  </div>
+
+  {/* REMOTE USERS */}
+
+  {
+
+    remoteStreams.map(
+
+      (remoteUser, index) => (
 
         <div
+
+          key={remoteUser.socketId}
+
           style={{
 
-            background: "#1e293b",
+            background:
+              "#1e293b",
 
-            borderRadius: "16px",
+            borderRadius:
+              "16px",
 
-            padding: "15px"
+            padding:
+              "15px"
 
           }}
+
         >
 
           <video
 
-  muted={false}
-
-  controls={false}
-            ref={localVideoRef}
-
             autoPlay
 
-            muted
-
             playsInline
+
+            ref={(video) => {
+
+              if (
+                video &&
+                remoteUser.stream
+              ) {
+
+                video.srcObject =
+                  remoteUser.stream;
+
+              }
+
+            }}
 
             style={{
 
@@ -1143,11 +1227,14 @@ setParticipants([]);
 
               height: "240px",
 
-              objectFit: "cover",
+              objectFit:
+                "cover",
 
-              borderRadius: "12px",
+              borderRadius:
+                "12px",
 
-              background: "black"
+              background:
+                "black"
 
             }}
 
@@ -1159,110 +1246,448 @@ setParticipants([]);
             }}
           >
 
-            {user.name}
+            {
+
+              participants.find(
+
+                (p) =>
+
+                  p.socketId ===
+                  remoteUser.socketId
+
+              )?.name ||
+
+              `User ${index + 1}`
+
+            }
 
           </h3>
 
         </div>
 
-        {/* REMOTE */}
+      )
 
-        {
+    )
 
-          remoteStreams.map(
+  }
 
-            (remoteUser, index) => (
+</div>
 
-              <div
+{/* MAIN DASHBOARD */}
 
-                key={remoteUser.socketId}
+<div
 
-                style={{
+  style={{
 
-                  background:
-                    "#1e293b",
+    display: "grid",
 
-                  borderRadius:
-                    "16px",
+    gridTemplateColumns:
+      "320px 1fr 350px",
 
-                  padding:
-                    "15px"
+    gap: "20px",
 
-                }}
+    marginBottom: "25px"
 
-              >
+  }}
 
-                <video
+>
 
-                  autoPlay
+  {/* CHAT */}
 
-                  playsInline
+  <div
 
-                  ref={(video) => {
+    style={{
 
-                    if (
-                      video &&
-                      remoteUser.stream
-                    ) {
+      background: "#111827",
 
-                      video.srcObject =
-                        remoteUser.stream;
+      borderRadius: "16px",
 
-                    }
+      padding: "20px",
 
-                  }}
+      display: "flex",
 
-                  style={{
+      flexDirection: "column",
 
-                    width: "100%",
+      height: "650px"
 
-                    height: "240px",
+    }}
 
-                    objectFit:
-                      "cover",
+  >
 
-                    borderRadius:
-                      "12px",
+    <h2>Chat</h2>
 
-                    background:
-                      "black"
+    <div
 
-                  }}
+      style={{
 
-                />
+        flex: 1,
 
-                <h3
-                  style={{
-                    marginTop: "12px"
-                  }}
-                >
+        overflowY: "auto",
 
-                  {
+        marginBottom: "15px"
 
-                    participants.find(
+      }}
 
-                      (p) =>
+    >
 
-                        p.socketId ===
-                        remoteUser.socketId
+      {
 
-                    )?.name ||
+        messages.map(
 
-                    `User ${index + 1}`
+          (msg, index) => (
 
-                  }
+            <div
 
-                </h3>
+              key={index}
+
+              style={{
+
+                background:
+                  "#1e293b",
+
+                padding: "12px",
+
+                borderRadius:
+                  "10px",
+
+                marginBottom:
+                  "10px"
+
+              }}
+
+            >
+
+              <strong>
+
+                {msg.sender}
+
+              </strong>
+
+              <div>
+
+                {msg.message}
 
               </div>
 
-            )
+            </div>
 
+          )
+
+        )
+
+      }
+
+      <div ref={messagesEndRef} />
+
+    </div>
+
+    <div
+      style={{
+        display: "flex"
+      }}
+    >
+
+      <input
+
+        value={message}
+
+        onChange={(e) =>
+
+          setMessage(
+            e.target.value
           )
 
         }
 
-      </div>
+        style={{
+
+          flex: 1,
+
+          padding: "12px",
+
+          borderRadius:
+            "10px",
+
+          border: "none"
+
+        }}
+
+      />
+
+      <button
+
+        onClick={sendMessage}
+
+        style={{
+
+          marginLeft: "10px",
+
+          padding:
+            "12px 18px",
+
+          background:
+            "#2563eb",
+
+          border: "none",
+
+          color: "white",
+
+          borderRadius:
+            "10px"
+
+        }}
+
+      >
+
+        Send
+
+      </button>
+
+    </div>
+
+  </div>
+
+  {/* EDITOR */}
+
+  <div
+
+    style={{
+
+      background: "#111827",
+
+      borderRadius: "16px",
+
+      padding: "20px"
+
+    }}
+
+  >
+
+    <div
+
+      style={{
+
+        display: "flex",
+
+        justifyContent:
+          "space-between",
+
+        marginBottom: "15px"
+
+      }}
+
+    >
+
+      <select
+
+        value={language}
+
+        onChange={(e) => {
+
+          const newLanguage =
+            e.target.value;
+
+          setLanguage(
+            newLanguage
+          );
+
+          setCode(
+
+            defaultCodes[
+              newLanguage
+            ]
+
+          );
+
+        }}
+
+        style={{
+
+          padding: "12px",
+
+          borderRadius:
+            "10px"
+
+        }}
+
+      >
+
+        <option value="javascript">
+
+          JavaScript
+
+        </option>
+
+        <option value="python">
+
+          Python
+
+        </option>
+
+        <option value="cpp">
+
+          C++
+
+        </option>
+
+        <option value="java">
+
+          Java
+
+        </option>
+
+      </select>
+
+      <button
+
+        onClick={runCode}
+
+        style={{
+
+          padding:
+            "12px 25px",
+
+          background:
+            "#16a34a",
+
+          border: "none",
+
+          color: "white",
+
+          borderRadius:
+            "10px"
+
+        }}
+
+      >
+
+        Run Code
+
+      </button>
+
+    </div>
+
+    <Editor
+
+      height="550px"
+
+      theme="vs-dark"
+
+      language={language}
+
+      value={code}
+
+      onChange={(value) =>
+
+        setCode(value || "")
+
+      }
+
+    />
+
+  </div>
+
+  {/* OUTPUT */}
+
+  <div
+
+    style={{
+
+      background: "#111827",
+
+      borderRadius: "16px",
+
+      padding: "20px"
+
+    }}
+
+  >
+
+    <h2>Output</h2>
+
+    <pre
+
+      style={{
+
+        color: "#22c55e",
+
+        whiteSpace:
+          "pre-wrap"
+
+      }}
+
+    >
+
+      {
+
+        output ||
+
+        "Run code to see output"
+
+      }
+
+    </pre>
+
+  </div>
+
+</div>
+
+{/* LOGIC */}
+
+<div
+
+  style={{
+
+    background: "white",
+
+    padding: "25px",
+
+    borderRadius: "16px"
+
+  }}
+
+>
+
+  <h2
+    style={{
+      color: "black"
+    }}
+  >
+
+    Logic / Notes
+
+  </h2>
+
+  <textarea
+
+    value={logic}
+
+    onChange={(e) =>
+
+      setLogic(
+        e.target.value
+      )
+
+    }
+
+    style={{
+
+      width: "100%",
+
+      height: "250px",
+
+      padding: "20px",
+
+      fontSize: "18px",
+
+      borderRadius:
+        "12px"
+
+    }}
+
+  />
+
+</div>
 
     </div>
 
