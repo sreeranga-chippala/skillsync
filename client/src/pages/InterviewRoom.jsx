@@ -168,14 +168,33 @@ int main() {
       const pc =
         new RTCPeerConnection({
 
-          iceServers: [
+         iceServers: [
 
-            {
-              urls:
-                "stun:stun.l.google.com:19302"
-            }
+  {
+    urls:
+      "stun:stun.l.google.com:19302"
+  },
 
-          ]
+  {
+    urls: [
+
+      "turn:openrelay.metered.ca:80",
+
+      "turn:openrelay.metered.ca:443",
+
+      "turn:openrelay.metered.ca:443?transport=tcp"
+
+    ],
+
+    username:
+      "openrelayproject",
+
+    credential:
+      "openrelayproject"
+
+  }
+
+]
 
         });
 
@@ -569,7 +588,7 @@ int main() {
         const response =
           await axios.post(
 
-            "BACKEND_URL/run",
+  `${BACKEND_URL}/run`,
 
             {
 
