@@ -170,161 +170,181 @@ int main() {
   /* PEER */
 
   const createPeerConnection =
-    async (
-      targetSocketId,
-      createOffer = false
-    ) => {
+  async (
+    targetSocketId,
+    createOffer = false
+  ) => {
 
-      if (
-        peerConnections.current[
-          targetSocketId
-        ]
-      ) return;
-
-      const pc =
-        new RTCPeerConnection({
-
-          iceServers: [
-
-            {
-              urls:
-                "stun:stun.l.google.com:19302"
-            },
-
-            {
-
-              urls: [
-
-                "turn:openrelay.metered.ca:80",
-
-                "turn:openrelay.metered.ca:443",
-
-                "turn:openrelay.metered.ca:443?transport=tcp"
-
-              ],
-
-              username:
-                "openrelayproject",
-
-              credential:
-                "openrelayproject"
-
-            }
-
-          ]
-
-        });
-
+    if (
       peerConnections.current[
         targetSocketId
-      ] = pc;
+      ]
+    ) {
 
-      localStreamRef.current
-        ?.getTracks()
-        .forEach((track) => {
+      return
+        peerConnections.current[
+          targetSocketId
+        ];
 
-          pc.addTrack(
-            track,
-            localStreamRef.current
-          );
+    }
 
-        });
+    const pc =
+      new RTCPeerConnection({
 
-      /* REMOTE STREAM */
+        iceServers: [
 
-      pc.ontrack =
-        (event) => {
-
-          setRemoteStreams(
-            (prev) => {
-
-              const filtered =
-                prev.filter(
-
-                  (p) =>
-
-                    p.socketId !==
-                    targetSocketId
-
-                );
-
-              return [
-
-                ...filtered,
-
-                {
-
-                  socketId:
-                    targetSocketId,
-
-                  stream:
-                    event.streams[0]
-
-                }
-
-              ];
-
-            }
-          );
-
-        };
-
-      /* ICE */
-
-      pc.onicecandidate =
-        (event) => {
-
-          if (
-            event.candidate
-          ) {
-
-            socketRef.current.emit(
-
-              "ice-candidate",
-
-              {
-
-                targetSocketId,
-
-                candidate:
-                  event.candidate
-
-              }
-
-            );
-
-          }
-
-        };
-
-      /* OFFER */
-
-      if (createOffer) {
-
-        const offer =
-          await pc.createOffer();
-
-        await pc.setLocalDescription(
-          offer
-        );
-
-        socketRef.current.emit(
-
-          "offer",
+          {
+            urls:
+              "stun:stun.l.google.com:19302"
+          },
 
           {
 
-            targetSocketId,
+            urls: [
 
-            offer
+              "turn:openrelay.metered.ca:80",
+
+              "turn:openrelay.metered.ca:443",
+
+              "turn:openrelay.metered.ca:443?transport=tcp"
+
+            ],
+
+            username:
+              "openrelayproject",
+
+            credential:
+              "openrelayproject"
 
           }
 
+        ]
+
+      });
+
+    peerConnections.current[
+      targetSocketId
+    ] = pc;
+
+    /* LOCAL TRACKS */
+
+    if (
+      localStreamRef.current
+    ) {
+
+      localStreamRef.current
+        .getTracks()
+        .forEach((track) => {
+
+          pc.addTrack(
+
+            track,
+
+            localStreamRef.current
+
+          );
+
+        });
+
+    }
+
+    /* REMOTE TRACK */
+
+    pc.ontrack =
+      (event) => {
+
+        setRemoteStreams(
+          (prev) => {
+
+            const filtered =
+              prev.filter(
+
+                (p) =>
+
+                  p.socketId !==
+                  targetSocketId
+
+              );
+
+            return [
+
+              ...filtered,
+
+              {
+
+                socketId:
+                  targetSocketId,
+
+                stream:
+                  event.streams[0]
+
+              }
+
+            ];
+
+          }
         );
 
-      }
+      };
 
-    };
+    /* ICE */
+
+    pc.onicecandidate =
+      (event) => {
+
+        if (
+          event.candidate
+        ) {
+
+          socketRef.current.emit(
+
+            "ice-candidate",
+
+            {
+
+              targetSocketId,
+
+              candidate:
+                event.candidate
+
+            }
+
+          );
+
+        }
+
+      };
+
+    /* OFFER */
+
+    if (createOffer) {
+
+      const offer =
+        await pc.createOffer();
+
+      await pc.setLocalDescription(
+        offer
+      );
+
+      socketRef.current.emit(
+
+        "offer",
+
+        {
+
+          targetSocketId,
+
+          offer
+
+        }
+
+      );
+
+    }
+
+    return pc;
+
+  };
 
   /* SOCKET */
 
@@ -447,39 +467,118 @@ int main() {
 
     /* USERS */
 
-    socket.on(
+   socket.on(
 
-      "existing-users",
+  "existing-users",
 
-      async (users) => {
+  async (users) => {
 
-        const filtered =
-          users.filter(
-            (u) =>
-              u.socketId !==
-              socket.id
-          );
+    const filtered =
+      users.filter(
 
-        setParticipants(
-          filtered
-        );
+        (u) =>
 
-        for (
-          const participant
-          of filtered
-        ) {
+          u.socketId !==
+          socket.id
 
-          await createPeerConnection(
-            participant.socketId,
-            true
-          );
+      );
 
-        }
+    setParticipants(
+      filtered
+    );
 
-      }
+    for (
+      const participant
+      of filtered
+    ) {
+
+      await createPeerConnection(
+
+        participant.socketId,
+
+        true
+
+      );
+
+    }
+
+  }
+
+);
+
+socket.on(
+
+  "user-joined",
+
+  async (participant) => {
+
+    if (
+      participant.socketId ===
+      socket.id
+    ) return;
+
+    setParticipants(
+      (prev) => [
+
+        ...prev,
+
+        participant
+
+      ]
+    );
+
+    await createPeerConnection(
+
+      participant.socketId,
+
+      true
 
     );
 
+  }
+
+);
+
+socket.on(
+
+  "user-left",
+
+  (socketId) => {
+
+    if (
+
+      peerConnections.current[
+        socketId
+      ]
+
+    ) {
+
+      peerConnections.current[
+        socketId
+      ].close();
+
+      delete peerConnections.current[
+        socketId
+      ];
+
+    }
+
+    setRemoteStreams(
+      (prev) =>
+
+        prev.filter(
+
+          (p) =>
+
+            p.socketId !== socketId
+
+        )
+
+    );
+
+  }
+
+);
     socket.on(
 
       "participants-update",
