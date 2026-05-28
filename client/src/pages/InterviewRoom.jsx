@@ -21,9 +21,6 @@ function InterviewRoom() {
   const { roomId } =
     useParams();
 
-  const messagesEndRef =
-    useRef(null);
-
   const socketRef =
     useRef(null);
 
@@ -35,6 +32,9 @@ function InterviewRoom() {
 
   const peerConnections =
     useRef({});
+
+  const messagesEndRef =
+    useRef(null);
 
   const initialLoadDone =
     useRef(false);
@@ -55,7 +55,9 @@ function InterviewRoom() {
     useState("javascript");
 
   const [code, setCode] =
-    useState("");
+    useState(
+`console.log("Hello SkillSync");`
+    );
 
   const [output, setOutput] =
     useState("");
@@ -124,6 +126,7 @@ int main() {
               .getUserMedia({
 
                 video: true,
+
                 audio: true
 
               });
@@ -170,181 +173,181 @@ int main() {
   /* PEER */
 
   const createPeerConnection =
-  async (
-    targetSocketId,
-    createOffer = false
-  ) => {
+    async (
+      targetSocketId,
+      createOffer = false
+    ) => {
 
-    if (
-      peerConnections.current[
-        targetSocketId
-      ]
-    ) {
-
-      return
+      let pc =
         peerConnections.current[
           targetSocketId
         ];
 
-    }
+      if (pc)
+        return pc;
 
-    const pc =
-      new RTCPeerConnection({
+      pc =
+        new RTCPeerConnection({
 
-        iceServers: [
-
-          {
-            urls:
-              "stun:stun.l.google.com:19302"
-          },
-
-          {
-
-            urls: [
-
-              "turn:openrelay.metered.ca:80",
-
-              "turn:openrelay.metered.ca:443",
-
-              "turn:openrelay.metered.ca:443?transport=tcp"
-
-            ],
-
-            username:
-              "openrelayproject",
-
-            credential:
-              "openrelayproject"
-
-          }
-
-        ]
-
-      });
-
-    peerConnections.current[
-      targetSocketId
-    ] = pc;
-
-    /* LOCAL TRACKS */
-
-    if (
-      localStreamRef.current
-    ) {
-
-      localStreamRef.current
-        .getTracks()
-        .forEach((track) => {
-
-          pc.addTrack(
-
-            track,
-
-            localStreamRef.current
-
-          );
-
-        });
-
-    }
-
-    /* REMOTE TRACK */
-
-    pc.ontrack =
-      (event) => {
-
-        setRemoteStreams(
-          (prev) => {
-
-            const filtered =
-              prev.filter(
-
-                (p) =>
-
-                  p.socketId !==
-                  targetSocketId
-
-              );
-
-            return [
-
-              ...filtered,
-
-              {
-
-                socketId:
-                  targetSocketId,
-
-                stream:
-                  event.streams[0]
-
-              }
-
-            ];
-
-          }
-        );
-
-      };
-
-    /* ICE */
-
-    pc.onicecandidate =
-      (event) => {
-
-        if (
-          event.candidate
-        ) {
-
-          socketRef.current.emit(
-
-            "ice-candidate",
+          iceServers: [
 
             {
 
-              targetSocketId,
+              urls:
+                "stun:stun.l.google.com:19302"
 
-              candidate:
-                event.candidate
+            },
+
+            {
+
+              urls: [
+
+                "turn:openrelay.metered.ca:80",
+
+                "turn:openrelay.metered.ca:443",
+
+                "turn:openrelay.metered.ca:443?transport=tcp"
+
+              ],
+
+              username:
+                "openrelayproject",
+
+              credential:
+                "openrelayproject"
 
             }
 
+          ]
+
+        });
+
+      peerConnections.current[
+        targetSocketId
+      ] = pc;
+
+      /* LOCAL TRACKS */
+
+      if (
+        localStreamRef.current
+      ) {
+
+        localStreamRef.current
+          .getTracks()
+          .forEach((track) => {
+
+            pc.addTrack(
+
+              track,
+
+              localStreamRef.current
+
+            );
+
+          });
+
+      }
+
+      /* REMOTE STREAM */
+
+      pc.ontrack =
+        (event) => {
+
+          const remoteStream =
+            event.streams[0];
+
+          setRemoteStreams(
+            (prev) => {
+
+              const filtered =
+                prev.filter(
+
+                  (p) =>
+
+                    p.socketId !==
+                    targetSocketId
+
+                );
+
+              return [
+
+                ...filtered,
+
+                {
+
+                  socketId:
+                    targetSocketId,
+
+                  stream:
+                    remoteStream
+
+                }
+
+              ];
+
+            }
           );
 
-        }
+        };
 
-      };
+      /* ICE */
 
-    /* OFFER */
+      pc.onicecandidate =
+        (event) => {
 
-    if (createOffer) {
+          if (
+            event.candidate
+          ) {
 
-      const offer =
-        await pc.createOffer();
+            socketRef.current.emit(
 
-      await pc.setLocalDescription(
-        offer
-      );
+              "ice-candidate",
 
-      socketRef.current.emit(
+              {
 
-        "offer",
+                targetSocketId,
 
-        {
+                candidate:
+                  event.candidate
 
-          targetSocketId,
+              }
 
+            );
+
+          }
+
+        };
+
+      /* OFFER */
+
+      if (createOffer) {
+
+        const offer =
+          await pc.createOffer();
+
+        await pc.setLocalDescription(
           offer
+        );
 
-        }
+        socketRef.current.emit(
 
-      );
+          "offer",
 
-    }
+          {
 
-    return pc;
+            targetSocketId,
 
-  };
+            offer
+
+          }
+
+        );
+
+      }
+
+      return pc;
+
+    };
 
   /* SOCKET */
 
@@ -353,21 +356,23 @@ int main() {
     socketRef.current =
       io(
 
-        window.location.origin,
+        "/",
 
         {
 
-          transports:
-            ["websocket"],
+          transports: [
 
-          reconnection:
-            true,
+            "websocket",
 
-          reconnectionAttempts:
-            10,
+            "polling"
 
-          reconnectionDelay:
-            1000
+          ],
+
+          reconnection: true,
+
+          reconnectionAttempts: 20,
+
+          reconnectionDelay: 1000
 
         }
 
@@ -375,6 +380,22 @@ int main() {
 
     const socket =
       socketRef.current;
+
+    /* JOIN */
+
+    socket.emit(
+
+      "join-room",
+
+      {
+
+        roomId,
+
+        user
+
+      }
+
+    );
 
     /* LOAD CHAT */
 
@@ -405,22 +426,6 @@ int main() {
       };
 
     fetchMessages();
-
-    /* JOIN */
-
-    socket.emit(
-
-      "join-room",
-
-      {
-
-        roomId,
-
-        user
-
-      }
-
-    );
 
     /* ROOM STATE */
 
@@ -465,135 +470,93 @@ int main() {
 
     );
 
-    /* USERS */
+    /* EXISTING USERS */
 
-   socket.on(
-
-  "existing-users",
-
-  async (users) => {
-
-    const filtered =
-      users.filter(
-
-        (u) =>
-
-          u.socketId !==
-          socket.id
-
-      );
-
-    setParticipants(
-      filtered
-    );
-
-    for (
-      const participant
-      of filtered
-    ) {
-
-      await createPeerConnection(
-
-        participant.socketId,
-
-        true
-
-      );
-
-    }
-
-  }
-
-);
-
-socket.on(
-
-  "user-joined",
-
-  async (participant) => {
-
-    if (
-      participant.socketId ===
-      socket.id
-    ) return;
-
-    setParticipants(
-      (prev) => [
-
-        ...prev,
-
-        participant
-
-      ]
-    );
-
-    await createPeerConnection(
-
-      participant.socketId,
-
-      true
-
-    );
-
-  }
-
-);
-
-socket.on(
-
-  "user-left",
-
-  (socketId) => {
-
-    if (
-
-      peerConnections.current[
-        socketId
-      ]
-
-    ) {
-
-      peerConnections.current[
-        socketId
-      ].close();
-
-      delete peerConnections.current[
-        socketId
-      ];
-
-    }
-
-    setRemoteStreams(
-      (prev) =>
-
-        prev.filter(
-
-          (p) =>
-
-            p.socketId !== socketId
-
-        )
-
-    );
-
-  }
-
-);
     socket.on(
 
-      "participants-update",
+      "existing-users",
 
-      (users) => {
+      async (users) => {
 
         const filtered =
           users.filter(
+
             (u) =>
+
               u.socketId !==
               socket.id
+
           );
 
         setParticipants(
           filtered
+        );
+
+        for (
+          const participant
+          of filtered
+        ) {
+
+          await createPeerConnection(
+
+            participant.socketId,
+
+            true
+
+          );
+
+        }
+
+      }
+
+    );
+
+    /* NEW USER */
+
+    socket.on(
+
+      "user-joined",
+
+      async (participant) => {
+
+        if (
+          participant.socketId ===
+          socket.id
+        ) return;
+
+        setParticipants(
+          (prev) => {
+
+            const exists =
+              prev.find(
+
+                (p) =>
+
+                  p.socketId ===
+                  participant.socketId
+
+              );
+
+            if (exists)
+              return prev;
+
+            return [
+
+              ...prev,
+
+              participant
+
+            ];
+
+          }
+        );
+
+        await createPeerConnection(
+
+          participant.socketId,
+
+          true
+
         );
 
       }
@@ -611,15 +574,14 @@ socket.on(
         senderSocketId
       }) => {
 
-        await createPeerConnection(
-          senderSocketId,
-          false
-        );
-
         const pc =
-          peerConnections.current[
-            senderSocketId
-          ];
+          await createPeerConnection(
+
+            senderSocketId,
+
+            false
+
+          );
 
         await pc.setRemoteDescription(
 
@@ -705,10 +667,79 @@ socket.on(
         if (!pc)
           return;
 
-        await pc.addIceCandidate(
+        try {
 
-          new RTCIceCandidate(
-            candidate)
+          await pc.addIceCandidate(
+
+            new RTCIceCandidate(
+              candidate
+            )
+
+          );
+
+        }
+
+        catch (err) {
+
+          console.log(err);
+
+        }
+
+      }
+
+    );
+
+    /* USER LEFT */
+
+    socket.on(
+
+      "user-left",
+
+      (socketId) => {
+
+        if (
+
+          peerConnections.current[
+            socketId
+          ]
+
+        ) {
+
+          peerConnections.current[
+            socketId
+          ].close();
+
+          delete peerConnections.current[
+            socketId
+          ];
+
+        }
+
+        setRemoteStreams(
+          (prev) =>
+
+            prev.filter(
+
+              (p) =>
+
+                p.socketId !==
+                socketId
+
+            )
+
+        );
+
+        setParticipants(
+          (prev) =>
+
+            prev.filter(
+
+              (p) =>
+
+                p.socketId !==
+                socketId
+
+            )
 
         );
 
@@ -972,378 +1003,208 @@ socket.on(
     };
 
   return (
-  <div
-    style={{
-      background: "#0f172a",
-      minHeight: "100vh",
-      padding: "20px",
-      color: "white",
-      fontFamily: "sans-serif"
-    }}
-  >
-    <h1
-      style={{
-        fontSize: "38px",
-        marginBottom: "20px"
-      }}
-    >
-      SkillSync Interview Room
-    </h1>
-
-    {/* TOP SECTION */}
 
     <div
       style={{
-        display: "grid",
-        gridTemplateColumns:
-          window.innerWidth < 1200
-            ? "1fr"
-            : "2fr 1fr",
-        gap: "20px"
+
+        background: "#0f172a",
+
+        minHeight: "100vh",
+
+        padding: "20px",
+
+        color: "white",
+
+        fontFamily: "sans-serif"
+
       }}
     >
 
-      {/* LEFT SIDE */}
-
-      <div>
-
-        {/* VIDEO SECTION */}
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns:
-              "repeat(auto-fit,minmax(280px,1fr))",
-            gap: "15px",
-            marginBottom: "20px"
-          }}
-        >
-
-          {/* LOCAL VIDEO */}
-
-          <div
-            style={{
-              background: "#1e293b",
-              padding: "12px",
-              borderRadius: "15px",
-              border: "2px solid #334155"
-            }}
-          >
-            <video
-              ref={localVideoRef}
-              autoPlay
-              muted
-              playsInline
-              style={{
-                width: "100%",
-                height: "220px",
-                objectFit: "cover",
-                borderRadius: "10px",
-                background: "black"
-              }}
-            />
-
-            <h3 style={{ marginTop: "10px" }}>
-              {user.name} (You)
-            </h3>
-
-            <p>{user.role}</p>
-          </div>
-
-          {/* REMOTE USERS */}
-
-          {remoteStreams.map((remoteUser, index) => (
-            <div
-              key={remoteUser.socketId}
-              style={{
-                background: "#1e293b",
-                padding: "12px",
-                borderRadius: "15px",
-                border: "2px solid #334155"
-              }}
-            >
-              <video
-                autoPlay
-                playsInline
-                ref={(video) => {
-                  if (video && remoteUser.stream) {
-                    video.srcObject =
-                      remoteUser.stream;
-                  }
-                }}
-                style={{
-                  width: "100%",
-                  height: "220px",
-                  objectFit: "cover",
-                  borderRadius: "10px",
-                  background: "black"
-                }}
-              />
-
-              <h3 style={{ marginTop: "10px" }}>
-                {participants.find(
-                  (p) =>
-                    p.socketId ===
-                    remoteUser.socketId
-                )?.name || `User ${index + 1}`}
-              </h3>
-
-              <p>
-                {
-                  participants.find(
-                    (p) =>
-                      p.socketId ===
-                      remoteUser.socketId
-                  )?.role
-                }
-              </p>
-            </div>
-          ))}
-
-        </div>
-
-        {/* CODE EDITOR */}
-
-        <div
-          style={{
-            background: "#1e293b",
-            padding: "15px",
-            borderRadius: "15px",
-            marginBottom: "20px"
-          }}
-        >
-
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              marginBottom: "10px"
-            }}
-          >
-
-            <h2>Code Editor</h2>
-
-            <select
-              value={language}
-              onChange={(e) => {
-                setLanguage(e.target.value);
-                setCode(
-                  defaultCodes[e.target.value]
-                );
-              }}
-              style={{
-                padding: "10px",
-                borderRadius: "8px"
-              }}
-            >
-              <option value="javascript">
-                JavaScript
-              </option>
-
-              <option value="python">
-                Python
-              </option>
-
-              <option value="cpp">
-                C++
-              </option>
-
-              <option value="java">
-                Java
-              </option>
-            </select>
-
-          </div>
-
-          <Editor
-            height="450px"
-            language={language}
-            value={code}
-            onChange={(value) =>
-              setCode(value)
-            }
-            theme="vs-dark"
-          />
-
-          <button
-            onClick={runCode}
-            style={{
-              marginTop: "15px",
-              padding: "12px 20px",
-              background: "#2563eb",
-              border: "none",
-              color: "white",
-              borderRadius: "10px",
-              cursor: "pointer"
-            }}
-          >
-            Run Code
-          </button>
-
-        </div>
-
-        {/* TEXT EDITOR */}
-
-        <div
-          style={{
-            background: "#1e293b",
-            padding: "15px",
-            borderRadius: "15px",
-            marginBottom: "20px"
-          }}
-        >
-
-          <h2>Logic / Notes</h2>
-
-          <textarea
-            value={logic}
-            onChange={(e) =>
-              setLogic(e.target.value)
-            }
-            placeholder="Write approach, notes, algorithms..."
-            style={{
-              width: "100%",
-              height: "180px",
-              background: "#0f172a",
-              color: "white",
-              border: "1px solid #334155",
-              borderRadius: "10px",
-              padding: "15px",
-              marginTop: "10px"
-            }}
-          />
-
-        </div>
-
-        {/* OUTPUT */}
-
-        <div
-          style={{
-            background: "#1e293b",
-            padding: "15px",
-            borderRadius: "15px"
-          }}
-        >
-
-          <h2>Output Console</h2>
-
-          <pre
-            style={{
-              background: "black",
-              color: "#22c55e",
-              padding: "15px",
-              borderRadius: "10px",
-              minHeight: "120px",
-              overflowX: "auto"
-            }}
-          >
-            {output}
-          </pre>
-
-        </div>
-
-      </div>
-
-      {/* RIGHT SIDE */}
-
-      <div
+      <h1
         style={{
-          background: "#1e293b",
-          borderRadius: "15px",
-          padding: "15px",
-          height: "fit-content"
+
+          marginBottom: "25px",
+
+          fontSize: "36px"
+
         }}
       >
 
-        <h2>Live Chat</h2>
+        SkillSync Interview Room
 
-        {/* CHAT MESSAGES */}
+      </h1>
 
-        <div
-          style={{
-            height: "500px",
-            overflowY: "auto",
-            background: "#0f172a",
-            padding: "10px",
-            borderRadius: "10px",
-            marginBottom: "15px"
-          }}
-        >
+      {/* CAMERA GRID */}
 
-          {messages.map((msg, index) => (
+      <div
+        style={{
 
-            <div
-              key={index}
-              style={{
-                marginBottom: "12px"
-              }}
-            >
+          display: "grid",
 
-              <strong>
-                {msg.sender}
-              </strong>
+          gridTemplateColumns:
+            "repeat(auto-fit, minmax(320px, 1fr))",
 
-              <p
-                style={{
-                  marginTop: "4px"
-                }}
-              >
-                {msg.message}
-              </p>
+          gap: "20px",
 
-            </div>
+          marginBottom: "25px"
 
-          ))}
+        }}
+      >
 
-          <div ref={messagesEndRef} />
-
-        </div>
-
-        {/* SEND MESSAGE */}
+        {/* LOCAL */}
 
         <div
           style={{
-            display: "flex",
-            gap: "10px"
+
+            background: "#1e293b",
+
+            borderRadius: "16px",
+
+            padding: "15px"
+
           }}
         >
 
-          <input
-            value={message}
-            onChange={(e) =>
-              setMessage(e.target.value)
-            }
-            placeholder="Type message..."
+          <video
+
+            ref={localVideoRef}
+
+            autoPlay
+
+            muted
+
+            playsInline
+
             style={{
-              flex: 1,
-              padding: "12px",
-              borderRadius: "10px",
-              border: "none"
+
+              width: "100%",
+
+              height: "240px",
+
+              objectFit: "cover",
+
+              borderRadius: "12px",
+
+              background: "black"
+
             }}
+
           />
 
-          <button
-            onClick={sendMessage}
+          <h3
             style={{
-              padding: "12px 18px",
-              borderRadius: "10px",
-              border: "none",
-              background: "#2563eb",
-              color: "white",
-              cursor: "pointer"
+              marginTop: "12px"
             }}
           >
-            Send
-          </button>
+
+            {user.name}
+
+          </h3>
 
         </div>
+
+        {/* REMOTE */}
+
+        {
+
+          remoteStreams.map(
+
+            (remoteUser, index) => (
+
+              <div
+
+                key={remoteUser.socketId}
+
+                style={{
+
+                  background:
+                    "#1e293b",
+
+                  borderRadius:
+                    "16px",
+
+                  padding:
+                    "15px"
+
+                }}
+
+              >
+
+                <video
+
+                  autoPlay
+
+                  playsInline
+
+                  ref={(video) => {
+
+                    if (
+                      video &&
+                      remoteUser.stream
+                    ) {
+
+                      video.srcObject =
+                        remoteUser.stream;
+
+                    }
+
+                  }}
+
+                  style={{
+
+                    width: "100%",
+
+                    height: "240px",
+
+                    objectFit:
+                      "cover",
+
+                    borderRadius:
+                      "12px",
+
+                    background:
+                      "black"
+
+                  }}
+
+                />
+
+                <h3
+                  style={{
+                    marginTop: "12px"
+                  }}
+                >
+
+                  {
+
+                    participants.find(
+
+                      (p) =>
+
+                        p.socketId ===
+                        remoteUser.socketId
+
+                    )?.name ||
+
+                    `User ${index + 1}`
+
+                  }
+
+                </h3>
+
+              </div>
+
+            )
+
+          )
+
+        }
 
       </div>
 
     </div>
 
-  </div>
-);
+  );
 
 }
 
