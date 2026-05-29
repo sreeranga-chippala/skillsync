@@ -13,22 +13,22 @@ function InterviewRoom() {
   const peerConnections = useRef({});
   const messagesEndRef = useRef(null);
   const initialLoadDone = useRef(false);
-  const cameraReadyRef = useRef(false);
   const socketInitialized = useRef(false);
-  const isEditingRef = useRef(false);
 
-  // FIX: Keep code/language in refs for emit — state only for rendering
+  // Editor refs — Monaco is UNCONTROLLED, no value= prop
+  const editorRef = useRef(null);         // Monaco editor instance
   const codeRef = useRef(`console.log("Hello SkillSync");`);
   const languageRef = useRef("javascript");
   const editorDebounce = useRef(null);
-  const emitEditorChange = useRef(null);
+  const isEditingRef = useRef(false);
+  const suppressSyncRef = useRef(false);  // prevent echo when applying remote changes
 
+  // Only these drive re-renders — editor content is NOT in state
   const [participants, setParticipants] = useState([]);
   const [remoteStreams, setRemoteStreams] = useState([]);
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
-  const [language, setLanguage] = useState("javascript");
-  const [code, setCode] = useState(`console.log("Hello SkillSync");`);
+  const [language, setLanguage] = useState("javascript");  // for <select> UI only
   const [output, setOutput] = useState("");
   const [logic, setLogic] = useState("");
 
@@ -53,20 +53,17 @@ int main() {
     role: localStorage.getItem("role") || "candidate",
   };
 
-  // Keep emitEditorChange ref always up to date
-  // This avoids stale closures without adding deps to useEffect
-  useEffect(() => {
-    emitEditorChange.current = (newCode, newLanguage) => {
-      if (!initialLoadDone.current) return;
-      socketRef.current?.emit("editor-change", {
-        roomId,
-        code: newCode,
-        language: newLanguage,
-      });
-    };
-  });
+  // Emit helper — reads from refs, never stale
+  const emitEditorChange = (newCode, newLang) => {
+    if (!initialLoadDone.current) return;
+    socketRef.current?.emit("editor-change", {
+      roomId,
+      code: newCode,
+      language: newLang,
+    });
+  };
 
-  // Camera init — ref only, no state, no re-render
+  // Camera — ref only, no setState, no re-render
   useEffect(() => {
     const initCamera = async () => {
       try {
@@ -78,12 +75,9 @@ int main() {
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
         }
-        cameraReadyRef.current = true;
-
         Object.values(peerConnections.current).forEach((pc) => {
           stream.getTracks().forEach((track) => {
-            const senders = pc.getSenders();
-            const alreadyAdded = senders.some((s) => s.track === track);
+            const alreadyAdded = pc.getSenders().some((s) => s.track === track);
             if (!alreadyAdded) pc.addTrack(track, stream);
           });
         });
@@ -99,7 +93,7 @@ int main() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  /* PEER */
+  /* PEER CONNECTION */
   const createPeerConnection = async (targetSocketId, createOffer = false) => {
     if (peerConnections.current[targetSocketId]) {
       return peerConnections.current[targetSocketId];
@@ -176,7 +170,6 @@ int main() {
     });
 
     const socket = socketRef.current;
-
     socket.emit("join-room", { roomId, user });
 
     const fetchMessages = async () => {
@@ -195,7 +188,10 @@ int main() {
       const newLang = data.language || "javascript";
       codeRef.current = newCode;
       languageRef.current = newLang;
-      setCode(newCode);
+      // Set editor content directly — no state, no re-render
+      if (editorRef.current) {
+        editorRef.current.setValue(newCode);
+      }
       setLanguage(newLang);
       setLogic(data.logic || "");
       setOutput(data.output || "");
@@ -258,13 +254,19 @@ int main() {
       setMessages((prev) => [...prev, msg]);
     });
 
-    // Only sync editor from remote when user is NOT actively typing
+    // Apply remote editor changes directly via editor API — zero re-renders
     socket.on("sync-editor", (data) => {
       if (isEditingRef.current) return;
+      suppressSyncRef.current = true;
       codeRef.current = data.code;
       languageRef.current = data.language;
-      setCode(data.code);
+      if (editorRef.current) {
+        // setValue does not trigger onChange if suppressSyncRef guards it
+        editorRef.current.setValue(data.code);
+      }
+      // Language change updates only the <select> UI
       setLanguage(data.language);
+      suppressSyncRef.current = false;
     });
 
     socket.on("sync-logic", (data) => {
@@ -285,9 +287,6 @@ int main() {
     };
   }, []);
 
-  // REMOVED: editor sync useEffect that depended on [code, language]
-  // Emit is now done directly inside onChange via debounce ref — no re-render triggered
-
   /* LOGIC SYNC */
   useEffect(() => {
     if (!initialLoadDone.current) return;
@@ -300,7 +299,7 @@ int main() {
     socketRef.current?.emit("output-change", { roomId, output });
   }, [output]);
 
-  /* RUN */
+  /* RUN — reads from ref, not state */
   const runCode = async () => {
     try {
       const response = await axios.post("/run", {
@@ -325,7 +324,7 @@ int main() {
     setMessage("");
   };
 
-  /* Callback ref for remote videos — no useEffect, no flicker */
+  /* Callback ref for remote videos */
   const setRemoteVideoRef = (socketId) => (el) => {
     if (!el) return;
     const found = remoteStreams.find((s) => s.socketId === socketId);
@@ -357,7 +356,7 @@ int main() {
           marginBottom: "25px",
         }}
       >
-        {/* LOCAL USER */}
+        {/* LOCAL */}
         <div
           style={{
             background: "#1e293b",
@@ -406,9 +405,8 @@ int main() {
               }}
             />
             <h3 style={{ marginTop: "10px" }}>
-              {participants.find(
-                (p) => p.socketId === remoteStreams[0].socketId
-              )?.name || "Participant"}
+              {participants.find((p) => p.socketId === remoteStreams[0].socketId)
+                ?.name || "Participant"}
             </h3>
           </div>
         ) : (
@@ -450,9 +448,8 @@ int main() {
               }}
             />
             <h3 style={{ marginTop: "10px" }}>
-              {participants.find(
-                (p) => p.socketId === remoteStreams[1].socketId
-              )?.name || "Participant"}
+              {participants.find((p) => p.socketId === remoteStreams[1].socketId)
+                ?.name || "Participant"}
             </h3>
           </div>
         ) : (
@@ -558,18 +555,18 @@ int main() {
             <select
               value={language}
               onChange={(e) => {
-                const newLanguage = e.target.value;
-                const newCode = defaultCodes[newLanguage];
-                // Update refs first — no re-render side effects
-                languageRef.current = newLanguage;
+                const newLang = e.target.value;
+                const newCode = defaultCodes[newLang];
+                languageRef.current = newLang;
                 codeRef.current = newCode;
-                // Update state for UI
-                setLanguage(newLanguage);
-                setCode(newCode);
-                // Emit immediately on language change
+                setLanguage(newLang); // updates <select> UI only
+                // Set editor content directly — no setCode, no re-render
+                if (editorRef.current) {
+                  editorRef.current.setValue(newCode);
+                }
                 clearTimeout(editorDebounce.current);
                 editorDebounce.current = setTimeout(() => {
-                  emitEditorChange.current?.(newCode, newLanguage);
+                  emitEditorChange(newCode, newLang);
                 }, 100);
               }}
               style={{ padding: "12px", borderRadius: "10px" }}
@@ -598,16 +595,18 @@ int main() {
             height="550px"
             theme="vs-dark"
             language={language}
-            value={code}
-            // keepCurrentModel prevents Monaco from remounting on language change
-            keepCurrentModel={false}
+            // NO value= prop — Monaco is uncontrolled
+            // defaultValue only sets content on first mount
+            defaultValue={codeRef.current}
             options={{
               minimap: { enabled: false },
               scrollBeyondLastLine: false,
               fontSize: 14,
             }}
             onMount={(editor) => {
-              // Track focus via Monaco's own events — reliable, no DOM hacks
+              // Store editor instance for direct API access
+              editorRef.current = editor;
+
               editor.onDidFocusEditorWidget(() => {
                 isEditingRef.current = true;
               });
@@ -616,15 +615,14 @@ int main() {
               });
             }}
             onChange={(value) => {
+              // Skip if this change was triggered by remote sync
+              if (suppressSyncRef.current) return;
               const newCode = value || "";
-              // Update ref synchronously — no render
               codeRef.current = newCode;
-              // Update state for controlled value display
-              setCode(newCode);
-              // Debounce the socket emit — does NOT trigger useEffect
+              // NO setCode — no state update — no re-render — no flicker
               clearTimeout(editorDebounce.current);
               editorDebounce.current = setTimeout(() => {
-                emitEditorChange.current?.(newCode, languageRef.current);
+                emitEditorChange(newCode, languageRef.current);
               }, 300);
             }}
           />
