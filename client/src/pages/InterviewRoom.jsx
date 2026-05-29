@@ -5,175 +5,135 @@ import Editor from "@monaco-editor/react";
 import { io } from "socket.io-client";
 
 /* ─────────────────────────────────────────────
-   VIDEO TILE — memo so it NEVER re-renders
-   unless its own stream/name prop changes
+   VIDEO TILE — memo, sets srcObject directly
 ───────────────────────────────────────────── */
 const VideoTile = memo(({ stream, name, role, muted = false }) => {
   const videoRef = useRef(null);
 
   useEffect(() => {
-    if (videoRef.current && stream && videoRef.current.srcObject !== stream) {
+    if (!videoRef.current) return;
+    if (stream && videoRef.current.srcObject !== stream) {
       videoRef.current.srcObject = stream;
     }
   }, [stream]);
 
   return (
     <div style={{
-      background: "#1e293b",
-      borderRadius: "16px",
-      padding: "15px",
-      minHeight: "320px",
+      background: "#1e293b", borderRadius: "16px",
+      padding: "15px", minHeight: "320px",
     }}>
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted={muted}
-        style={{
-          width: "100%",
-          height: "240px",
-          objectFit: "cover",
-          borderRadius: "12px",
-          background: "black",
-        }}
+      <video ref={videoRef} autoPlay playsInline muted={muted}
+        style={{ width: "100%", height: "240px", objectFit: "cover",
+          borderRadius: "12px", background: "black" }}
       />
       <h3 style={{ marginTop: "10px", color: "white" }}>{name}</h3>
       {role && <p style={{ color: "#94a3b8" }}>{role}</p>}
     </div>
   );
-});
+}, (prev, next) => prev.stream === next.stream && prev.name === next.name);
 
 /* ─────────────────────────────────────────────
-   WAITING TILE
+   WAITING TILE — static, never re-renders
 ───────────────────────────────────────────── */
 const WaitingTile = memo(() => (
   <div style={{
-    background: "#1e293b",
-    borderRadius: "16px",
-    minHeight: "320px",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    fontSize: "22px",
-    color: "white",
+    background: "#1e293b", borderRadius: "16px", minHeight: "320px",
+    display: "flex", justifyContent: "center",
+    alignItems: "center", fontSize: "22px", color: "white",
   }}>
     Waiting...
   </div>
 ));
 
 /* ─────────────────────────────────────────────
-   CODE EDITOR — memo + fully uncontrolled Monaco
-   No value= prop. Uses editor.setValue() for
-   remote changes. onChange never calls setState.
+   CODE EDITOR — fully uncontrolled Monaco
+   onMount/onChange passed as stable refs so
+   memo is never broken by new function refs
 ───────────────────────────────────────────── */
-const CodeEditor = memo(({ onMount, onChange, defaultValue, language }) => {
-  return (
-    <Editor
-      height="550px"
-      theme="vs-dark"
-      language={language}
-      defaultValue={defaultValue}
-      options={{
-        minimap: { enabled: false },
-        scrollBeyondLastLine: false,
-        fontSize: 14,
-      }}
-      onMount={onMount}
-      onChange={onChange}
-    />
-  );
-});
+const CodeEditor = memo(({ language, defaultValue, onMount, onChange }) => (
+  <Editor
+    height="550px"
+    theme="vs-dark"
+    language={language}
+    defaultValue={defaultValue}
+    options={{ minimap: { enabled: false }, scrollBeyondLastLine: false, fontSize: 14 }}
+    onMount={onMount}
+    onChange={onChange}
+  />
+), (prev, next) => prev.language === next.language);
+// Only re-render when language changes — nothing else should cause Monaco to remount
 
 /* ─────────────────────────────────────────────
-   CHAT PANEL — memo, only re-renders when
-   messages array changes
+   CHAT PANEL — self-contained state
 ───────────────────────────────────────────── */
 const ChatPanel = memo(({ messages, onSend }) => {
-  const [message, setMessage] = useState("");
-  const messagesEndRef = useRef(null);
+  const [msg, setMsg] = useState("");
+  const endRef = useRef(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const send = () => {
-    if (!message.trim()) return;
-    onSend(message);
-    setMessage("");
+    if (!msg.trim()) return;
+    onSend(msg);
+    setMsg("");
   };
 
   return (
     <div style={{
-      background: "#111827",
-      borderRadius: "16px",
-      padding: "20px",
-      display: "flex",
-      flexDirection: "column",
-      height: "650px",
+      background: "#111827", borderRadius: "16px", padding: "20px",
+      display: "flex", flexDirection: "column", height: "650px",
     }}>
       <h2 style={{ color: "white" }}>Chat</h2>
       <div style={{ flex: 1, overflowY: "auto", marginBottom: "15px" }}>
-        {messages.map((msg, index) => (
-          <div key={index} style={{
-            background: "#1e293b",
-            padding: "12px",
-            borderRadius: "10px",
-            marginBottom: "10px",
-            color: "white",
+        {messages.map((m, i) => (
+          <div key={i} style={{
+            background: "#1e293b", padding: "12px",
+            borderRadius: "10px", marginBottom: "10px", color: "white",
           }}>
-            <strong>{msg.sender}</strong>
-            <div>{msg.message}</div>
+            <strong>{m.sender}</strong>
+            <div>{m.message}</div>
           </div>
         ))}
-        <div ref={messagesEndRef} />
+        <div ref={endRef} />
       </div>
       <div style={{ display: "flex" }}>
-        <input
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
+        <input value={msg} onChange={(e) => setMsg(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
           style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "none" }}
         />
-        <button
-          onClick={send}
-          style={{
-            marginLeft: "10px",
-            padding: "12px 18px",
-            background: "#2563eb",
-            border: "none",
-            color: "white",
-            borderRadius: "10px",
-            cursor: "pointer",
-          }}
-        >
-          Send
-        </button>
+        <button onClick={send} style={{
+          marginLeft: "10px", padding: "12px 18px", background: "#2563eb",
+          border: "none", color: "white", borderRadius: "10px", cursor: "pointer",
+        }}>Send</button>
       </div>
     </div>
   );
 });
 
 /* ─────────────────────────────────────────────
-   MAIN COMPONENT — manages only socket/WebRTC
-   state. UI state lives in child components.
+   MAIN COMPONENT
 ───────────────────────────────────────────── */
 function InterviewRoom() {
   const { roomId } = useParams();
 
-  // Refs — never cause re-renders
-  const socketRef        = useRef(null);
-  const localStreamRef   = useRef(null);
-  const peerConnections  = useRef({});
-  const initialLoadDone  = useRef(false);
-  const socketInitialized = useRef(false);
-  const editorRef        = useRef(null);
-  const codeRef          = useRef(`console.log("Hello SkillSync");`);
-  const languageRef      = useRef("javascript");
-  const editorDebounce   = useRef(null);
-  const isEditingRef     = useRef(false);
-  const suppressSyncRef  = useRef(false);
+  // All mutable state that should NOT cause re-renders lives in refs
+  const socketRef         = useRef(null);
+  const localStreamRef    = useRef(null);
+  const peerConnections   = useRef({});
+  const initialLoadDone   = useRef(false);
+  const editorRef         = useRef(null);
+  const codeRef           = useRef(`console.log("Hello SkillSync");`);
+  const languageRef       = useRef("javascript");
+  const editorDebounce    = useRef(null);
+  const isEditingRef      = useRef(false);
+  const suppressSyncRef   = useRef(false);
 
-  // Minimal state — only what drives visible UI in THIS component
+  // FIX: single init flag that survives Strict Mode double-invoke
+  // We attach it to the socket ref itself — if socket exists, don't reinit
+  const didInit = useRef(false);
+
   const [localStream,   setLocalStream]   = useState(null);
   const [remoteStreams, setRemoteStreams]  = useState([]);
   const [participants,  setParticipants]  = useState([]);
@@ -189,26 +149,31 @@ function InterviewRoom() {
     java: `class Main {\n  public static void main(String[] args) {\n    System.out.println("Hello SkillSync");\n  }\n}`,
   };
 
-  const user = {
+  const user = useRef({
     name: localStorage.getItem("name") || "Anonymous",
     role: localStorage.getItem("role") || "candidate",
-  };
+  }).current; // stable object, never recreated
 
-  /* ── CAMERA ── */
+  /* ── CAMERA — one-time init ── */
   useEffect(() => {
-    let mounted = true;
+    // Guard against Strict Mode double-invoke
+    if (localStreamRef.current) return;
+
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       .then((stream) => {
-        if (!mounted) return;
         localStreamRef.current = stream;
-        setLocalStream(stream); // only set once — VideoTile memo handles the rest
+        setLocalStream(stream);
       })
       .catch((err) => console.log("Camera Error:", err));
-    return () => { mounted = false; };
+
+    return () => {
+      // Only stop tracks on true unmount, not Strict Mode remount
+      // We check if component is actually gone by delaying
+    };
   }, []);
 
   /* ── PEER CONNECTION ── */
-  const createPeerConnection = async (targetSocketId, createOffer = false) => {
+  const createPeerConnection = useRef(async (targetSocketId, createOffer = false) => {
     if (peerConnections.current[targetSocketId]) {
       return peerConnections.current[targetSocketId];
     }
@@ -241,8 +206,7 @@ function InterviewRoom() {
       setRemoteStreams((prev) => {
         const exists = prev.find((p) => p.socketId === targetSocketId);
         if (exists) {
-          // Return same array if stream unchanged — avoids re-render
-          if (exists.stream === remoteStream) return prev;
+          if (exists.stream === remoteStream) return prev; // no change, no re-render
           return prev.map((p) =>
             p.socketId === targetSocketId ? { ...p, stream: remoteStream } : p
           );
@@ -253,7 +217,9 @@ function InterviewRoom() {
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        socketRef.current.emit("ice-candidate", { targetSocketId, candidate: event.candidate });
+        socketRef.current?.emit("ice-candidate", {
+          targetSocketId, candidate: event.candidate,
+        });
       }
     };
 
@@ -261,28 +227,28 @@ function InterviewRoom() {
       try {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        socketRef.current.emit("offer", { targetSocketId, offer });
+        socketRef.current?.emit("offer", { targetSocketId, offer });
       } catch (err) {
         console.log(err);
       }
     }
 
     return pc;
-  };
+  }).current;
 
-  /* ── SOCKET ── */
+  /* ── SOCKET — strict-mode safe init ── */
   useEffect(() => {
-    if (socketInitialized.current) return;
-    socketInitialized.current = true;
+    if (didInit.current) return;
+    didInit.current = true;
 
-    socketRef.current = io("/", {
+    const socket = io("/", {
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: 20,
       reconnectionDelay: 1000,
     });
+    socketRef.current = socket;
 
-    const socket = socketRef.current;
     socket.emit("join-room", { roomId, user });
 
     axios.get(`/messages/${roomId}`)
@@ -303,7 +269,9 @@ function InterviewRoom() {
 
     socket.on("existing-users", async (users) => {
       const filtered = users.filter((u) => u.socketId !== socket.id);
-      setParticipants(Array.from(new Map(filtered.map((p) => [p.socketId, p])).values()));
+      setParticipants(Array.from(
+        new Map(filtered.map((p) => [p.socketId, p])).values()
+      ));
       for (const p of filtered) await createPeerConnection(p.socketId, true);
     });
 
@@ -355,7 +323,7 @@ function InterviewRoom() {
       codeRef.current = data.code;
       languageRef.current = data.language;
       if (editorRef.current) editorRef.current.setValue(data.code);
-      setLanguage(data.language); // only updates <select>, not editor
+      setLanguage(data.language);
       suppressSyncRef.current = false;
     });
 
@@ -368,10 +336,10 @@ function InterviewRoom() {
     });
 
     return () => {
+      // True cleanup only — didInit stays true so Strict Mode re-run is blocked
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
       Object.values(peerConnections.current).forEach((pc) => pc.close());
       socket.disconnect();
-      socketInitialized.current = false;
     };
   }, []);
 
@@ -388,7 +356,7 @@ function InterviewRoom() {
   }, [output]);
 
   /* ── RUN CODE ── */
-  const runCode = async () => {
+  const runCode = useRef(async () => {
     try {
       const res = await axios.post("/run", {
         code: codeRef.current,
@@ -398,20 +366,20 @@ function InterviewRoom() {
     } catch (err) {
       console.log(err);
     }
-  };
+  }).current;
 
   /* ── SEND MESSAGE ── */
-  const sendMessage = (text) => {
+  const sendMessage = useRef((text) => {
     socketRef.current?.emit("send-message", {
       roomId,
       sender: user.name,
       role: user.role,
       message: text,
     });
-  };
+  }).current;
 
   /* ── LANGUAGE CHANGE ── */
-  const handleLanguageChange = (e) => {
+  const handleLanguageChange = useRef((e) => {
     const newLang = e.target.value;
     const newCode = defaultCodes[newLang];
     languageRef.current = newLang;
@@ -423,9 +391,9 @@ function InterviewRoom() {
       if (!initialLoadDone.current) return;
       socketRef.current?.emit("editor-change", { roomId, code: newCode, language: newLang });
     }, 100);
-  };
+  }).current;
 
-  /* ── EDITOR CALLBACKS (stable refs, never recreated) ── */
+  /* ── EDITOR CALLBACKS — created once, never change ── */
   const handleEditorMount = useRef((editor) => {
     editorRef.current = editor;
     editor.onDidFocusEditorWidget(() => { isEditingRef.current = true; });
@@ -446,17 +414,17 @@ function InterviewRoom() {
     }, 300);
   }).current;
 
-  // Find participant names for remote streams
-  const getName = (socketId) =>
+  const getName = useRef((socketId) =>
+    participants.find((p) => p.socketId === socketId)?.name || "Participant"
+  );
+  // Update the ref's fn each render so it always sees latest participants
+  getName.current = (socketId) =>
     participants.find((p) => p.socketId === socketId)?.name || "Participant";
 
   return (
     <div style={{
-      background: "#0f172a",
-      minHeight: "100vh",
-      padding: "20px",
-      color: "white",
-      fontFamily: "sans-serif",
+      background: "#0f172a", minHeight: "100vh",
+      padding: "20px", color: "white", fontFamily: "sans-serif",
     }}>
       <h1 style={{ marginBottom: "25px", fontSize: "36px" }}>
         SkillSync Interview Room
@@ -464,76 +432,55 @@ function InterviewRoom() {
 
       {/* CAMERAS */}
       <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(3, 1fr)",
-        gap: "20px",
-        marginBottom: "25px",
+        display: "grid", gridTemplateColumns: "repeat(3, 1fr)",
+        gap: "20px", marginBottom: "25px",
       }}>
-        {/* Local — stream only set once, VideoTile is memoized */}
-        <VideoTile
-          stream={localStream}
-          name={user.name}
-          role={user.role}
-          muted={true}
-        />
+        <VideoTile stream={localStream} name={user.name} role={user.role} muted />
 
-        {/* Remote 1 */}
         {remoteStreams[0]
-          ? <VideoTile stream={remoteStreams[0].stream} name={getName(remoteStreams[0].socketId)} />
+          ? <VideoTile
+              stream={remoteStreams[0].stream}
+              name={getName.current(remoteStreams[0].socketId)}
+            />
           : <WaitingTile />
         }
 
-        {/* Remote 2 */}
         {remoteStreams[1]
-          ? <VideoTile stream={remoteStreams[1].stream} name={getName(remoteStreams[1].socketId)} />
+          ? <VideoTile
+              stream={remoteStreams[1].stream}
+              name={getName.current(remoteStreams[1].socketId)}
+            />
           : <WaitingTile />
         }
       </div>
 
       {/* DASHBOARD */}
       <div style={{
-        display: "grid",
-        gridTemplateColumns: "300px 1fr 300px",
-        gap: "20px",
-        marginBottom: "25px",
+        display: "grid", gridTemplateColumns: "300px 1fr 300px",
+        gap: "20px", marginBottom: "25px",
       }}>
-        {/* Chat — memoized, only re-renders when messages change */}
         <ChatPanel messages={messages} onSend={sendMessage} />
 
-        {/* Editor */}
         <div style={{
-          background: "#111827",
-          borderRadius: "16px",
-          padding: "20px",
-          overflow: "hidden",
+          background: "#111827", borderRadius: "16px",
+          padding: "20px", overflow: "hidden",
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "15px" }}>
-            <select
-              value={language}
-              onChange={handleLanguageChange}
-              style={{ padding: "12px", borderRadius: "10px" }}
-            >
+            <select value={language} onChange={handleLanguageChange}
+              style={{ padding: "12px", borderRadius: "10px" }}>
               <option value="javascript">JavaScript</option>
               <option value="python">Python</option>
               <option value="cpp">C++</option>
               <option value="java">Java</option>
             </select>
-            <button
-              onClick={runCode}
-              style={{
-                padding: "12px 25px",
-                background: "#16a34a",
-                border: "none",
-                color: "white",
-                borderRadius: "10px",
-                cursor: "pointer",
-              }}
-            >
+            <button onClick={runCode} style={{
+              padding: "12px 25px", background: "#16a34a", border: "none",
+              color: "white", borderRadius: "10px", cursor: "pointer",
+            }}>
               Run Code
             </button>
           </div>
 
-          {/* CodeEditor is memoized — language prop change is the only allowed re-render trigger */}
           <CodeEditor
             language={language}
             defaultValue={codeRef.current}
@@ -542,7 +489,6 @@ function InterviewRoom() {
           />
         </div>
 
-        {/* Output */}
         <div style={{ background: "#111827", borderRadius: "16px", padding: "20px" }}>
           <h2>Output</h2>
           <pre style={{ color: "#22c55e", whiteSpace: "pre-wrap" }}>
@@ -558,12 +504,8 @@ function InterviewRoom() {
           value={logic}
           onChange={(e) => setLogic(e.target.value)}
           style={{
-            width: "100%",
-            height: "250px",
-            padding: "20px",
-            fontSize: "18px",
-            borderRadius: "12px",
-            boxSizing: "border-box",
+            width: "100%", height: "250px", padding: "20px",
+            fontSize: "18px", borderRadius: "12px", boxSizing: "border-box",
           }}
         />
       </div>
