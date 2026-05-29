@@ -23,7 +23,11 @@ function InterviewRoom() {
 
   const socketRef =
     useRef(null);
+  const remoteVideo1Ref =
+  useRef(null);
 
+const remoteVideo2Ref =
+  useRef(null);
   const localVideoRef =
     useRef(null);
 
@@ -174,6 +178,31 @@ useEffect(() => {
       });
 
   }, [messages]);
+
+
+  useEffect(() => {
+
+  if (
+    remoteVideo1Ref.current &&
+    remoteStreams[0]
+  ) {
+
+    remoteVideo1Ref.current.srcObject =
+      remoteStreams[0].stream;
+
+  }
+
+  if (
+    remoteVideo2Ref.current &&
+    remoteStreams[1]
+  ) {
+
+    remoteVideo2Ref.current.srcObject =
+      remoteStreams[1].stream;
+
+  }
+
+}, [remoteStreams]);
 
   /* PEER */
 
@@ -835,50 +864,71 @@ socket.emit(
     /* EDITOR */
 
     socket.on(
+  "sync-editor",
+  (data) => {
 
-      "sync-editor",
+    setCode(prev =>
 
-      (data) => {
-
-        setCode(
-          data.code
-        );
-
-        setLanguage(
-          data.language
-        );
-
-      }
+      prev === data.code
+        ? prev
+        : data.code
 
     );
+
+    setLanguage(prev =>
+
+      prev === data.language
+        ? prev
+        : data.language
+
+    );
+
+  }
+);
 
     /* LOGIC */
 
     socket.on(
 
-      "sync-logic",
+  "sync-logic",
 
-      (data) => {
+  (data) => {
 
-        setLogic(data);
+    setLogic(
 
-      }
+      prev =>
+
+        prev === data
+          ? prev
+          : data
 
     );
+
+  }
+
+);
 
     /* OUTPUT */
 
     socket.on(
 
-      "sync-output",
+  "sync-output",
 
-      (data) => {
+  (data) => {
 
-        setOutput(data);
+    setOutput(
 
-      }
+      prev =>
+
+        prev === data
+          ? prev
+          : data
 
     );
+
+  }
+
+);
 
     return () => {
 
@@ -913,33 +963,34 @@ setParticipants([]);
 
   useEffect(() => {
 
-    if (
-      !initialLoadDone.current
-    ) return;
+  if (
+    !initialLoadDone.current
+  ) return;
 
-    socketRef.current?.emit(
+  const timer =
+    setTimeout(() => {
 
-      "editor-change",
+      socketRef.current?.emit(
 
-      {
+        "editor-change",
 
-        roomId,
+        {
+          roomId,
+          code,
+          language
+        }
 
-        code,
+      );
 
-        language
+    }, 300);
 
-      }
+  return () =>
+    clearTimeout(timer);
 
-    );
-
-  }, [
-
-    code,
-    language
-
-  ]);
-
+}, [
+  code,
+  language
+]);
   /* LOGIC SYNC */
 
   useEffect(() => {
@@ -1207,23 +1258,11 @@ setParticipants([]);
 
       <video
 
-        autoPlay
+  autoPlay
 
-        playsInline
+  playsInline
 
-        ref={(video) => {
-
-          if (
-            video &&
-            remoteStreams[0]
-          ) {
-
-            video.srcObject =
-              remoteStreams[0].stream;
-
-          }
-
-        }}
+  ref={remoteVideo1Ref}
 
         style={{
 
@@ -1336,23 +1375,11 @@ setParticipants([]);
 
       <video
 
-        autoPlay
+  autoPlay
 
-        playsInline
+  playsInline
 
-        ref={(video) => {
-
-          if (
-            video &&
-            remoteStreams[1]
-          ) {
-
-            video.srcObject =
-              remoteStreams[1].stream;
-
-          }
-
-        }}
+  ref={remoteVideo2Ref}
 
         style={{
 
