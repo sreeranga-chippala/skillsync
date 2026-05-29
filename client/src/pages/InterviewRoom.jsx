@@ -13,14 +13,15 @@ function InterviewRoom() {
   const peerConnections = useRef({});
   const messagesEndRef = useRef(null);
   const initialLoadDone = useRef(false);
-
-  // FIX 1: Use a ref instead of state for camera readiness
-  // State causes re-renders which re-run the socket useEffect → reconnects → blinks
   const cameraReadyRef = useRef(false);
   const socketInitialized = useRef(false);
-
-  // FIX 2: Track editor focus via Monaco events, not fragile className checks
   const isEditingRef = useRef(false);
+
+  // FIX: Keep code/language in refs for emit — state only for rendering
+  const codeRef = useRef(`console.log("Hello SkillSync");`);
+  const languageRef = useRef("javascript");
+  const editorDebounce = useRef(null);
+  const emitEditorChange = useRef(null);
 
   const [participants, setParticipants] = useState([]);
   const [remoteStreams, setRemoteStreams] = useState([]);
@@ -52,8 +53,20 @@ int main() {
     role: localStorage.getItem("role") || "candidate",
   };
 
-  // FIX 1: Camera init — no state update, just a ref flag
-  // This means no re-render fires, so the socket useEffect stays stable
+  // Keep emitEditorChange ref always up to date
+  // This avoids stale closures without adding deps to useEffect
+  useEffect(() => {
+    emitEditorChange.current = (newCode, newLanguage) => {
+      if (!initialLoadDone.current) return;
+      socketRef.current?.emit("editor-change", {
+        roomId,
+        code: newCode,
+        language: newLanguage,
+      });
+    };
+  });
+
+  // Camera init — ref only, no state, no re-render
   useEffect(() => {
     const initCamera = async () => {
       try {
@@ -67,14 +80,11 @@ int main() {
         }
         cameraReadyRef.current = true;
 
-        // Now that camera is ready, add tracks to any already-created peer connections
         Object.values(peerConnections.current).forEach((pc) => {
           stream.getTracks().forEach((track) => {
             const senders = pc.getSenders();
             const alreadyAdded = senders.some((s) => s.track === track);
-            if (!alreadyAdded) {
-              pc.addTrack(track, stream);
-            }
+            if (!alreadyAdded) pc.addTrack(track, stream);
           });
         });
       } catch (err) {
@@ -82,7 +92,7 @@ int main() {
       }
     };
     initCamera();
-  }, []); // runs exactly once, no state → no re-render → no blink
+  }, []);
 
   /* AUTO SCROLL */
   useEffect(() => {
@@ -112,14 +122,12 @@ int main() {
 
     peerConnections.current[targetSocketId] = pc;
 
-    // Add local tracks if stream is ready
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => {
         pc.addTrack(track, localStreamRef.current);
       });
     }
 
-    /* REMOTE */
     pc.ontrack = (event) => {
       const remoteStream = event.streams[0];
       setRemoteStreams((prev) => {
@@ -133,7 +141,6 @@ int main() {
       });
     };
 
-    /* ICE */
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         socketRef.current.emit("ice-candidate", {
@@ -143,7 +150,6 @@ int main() {
       }
     };
 
-    /* OFFER */
     if (createOffer) {
       try {
         const offer = await pc.createOffer();
@@ -157,7 +163,7 @@ int main() {
     return pc;
   };
 
-  /* SOCKET — runs once, no dependencies that change */
+  /* SOCKET — runs once */
   useEffect(() => {
     if (socketInitialized.current) return;
     socketInitialized.current = true;
@@ -171,10 +177,8 @@ int main() {
 
     const socket = socketRef.current;
 
-    // Emit join immediately — camera readiness doesn't block socket setup
     socket.emit("join-room", { roomId, user });
 
-    /* LOAD CHAT */
     const fetchMessages = async () => {
       try {
         const response = await axios.get(`/messages/${roomId}`);
@@ -185,29 +189,28 @@ int main() {
     };
     fetchMessages();
 
-    /* ROOM STATE */
     socket.on("room-state", (data) => {
       initialLoadDone.current = true;
-      setCode(data.code || defaultCodes.javascript);
-      setLanguage(data.language || "javascript");
+      const newCode = data.code || defaultCodes.javascript;
+      const newLang = data.language || "javascript";
+      codeRef.current = newCode;
+      languageRef.current = newLang;
+      setCode(newCode);
+      setLanguage(newLang);
       setLogic(data.logic || "");
       setOutput(data.output || "");
     });
 
-    /* EXISTING USERS */
     socket.on("existing-users", async (users) => {
       const filtered = users.filter((u) => u.socketId !== socket.id);
       setParticipants(
-        Array.from(
-          new Map(filtered.map((p) => [p.socketId, p])).values()
-        )
+        Array.from(new Map(filtered.map((p) => [p.socketId, p])).values())
       );
       for (const participant of filtered) {
         await createPeerConnection(participant.socketId, true);
       }
     });
 
-    /* NEW USER */
     socket.on("user-joined", async (participant) => {
       if (participant.socketId === socket.id) return;
       setParticipants((prev) => {
@@ -218,7 +221,6 @@ int main() {
       await createPeerConnection(participant.socketId, true);
     });
 
-    /* OFFER */
     socket.on("offer", async ({ offer, senderSocketId }) => {
       const pc = await createPeerConnection(senderSocketId, false);
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
@@ -227,14 +229,12 @@ int main() {
       socket.emit("answer", { targetSocketId: senderSocketId, answer });
     });
 
-    /* ANSWER */
     socket.on("answer", async ({ answer, senderSocketId }) => {
       const pc = peerConnections.current[senderSocketId];
       if (!pc) return;
       await pc.setRemoteDescription(new RTCSessionDescription(answer));
     });
 
-    /* ICE */
     socket.on("ice-candidate", async ({ candidate, senderSocketId }) => {
       const pc = peerConnections.current[senderSocketId];
       if (!pc) return;
@@ -245,7 +245,6 @@ int main() {
       }
     });
 
-    /* USER LEFT */
     socket.on("user-left", (socketId) => {
       if (peerConnections.current[socketId]) {
         peerConnections.current[socketId].close();
@@ -255,24 +254,23 @@ int main() {
       setParticipants((prev) => prev.filter((p) => p.socketId !== socketId));
     });
 
-    /* CHAT */
     socket.on("receive-message", (msg) => {
       setMessages((prev) => [...prev, msg]);
     });
 
-    // FIX 2: Guard sync-editor with isEditingRef so typing is never interrupted
+    // Only sync editor from remote when user is NOT actively typing
     socket.on("sync-editor", (data) => {
       if (isEditingRef.current) return;
+      codeRef.current = data.code;
+      languageRef.current = data.language;
       setCode(data.code);
       setLanguage(data.language);
     });
 
-    /* LOGIC — equality guard prevents unnecessary re-renders */
     socket.on("sync-logic", (data) => {
       setLogic((prev) => (prev === data ? prev : data));
     });
 
-    /* OUTPUT — equality guard */
     socket.on("sync-output", (data) => {
       setOutput((prev) => (prev === data ? prev : data));
     });
@@ -285,16 +283,10 @@ int main() {
       socket.disconnect();
       socketInitialized.current = false;
     };
-  }, []); // empty deps — runs once, never reconnects
+  }, []);
 
-  /* EDITOR SYNC */
-  useEffect(() => {
-    if (!initialLoadDone.current) return;
-    const timer = setTimeout(() => {
-      socketRef.current?.emit("editor-change", { roomId, code, language });
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [code, language]);
+  // REMOVED: editor sync useEffect that depended on [code, language]
+  // Emit is now done directly inside onChange via debounce ref — no re-render triggered
 
   /* LOGIC SYNC */
   useEffect(() => {
@@ -311,7 +303,10 @@ int main() {
   /* RUN */
   const runCode = async () => {
     try {
-      const response = await axios.post("/run", { code, language });
+      const response = await axios.post("/run", {
+        code: codeRef.current,
+        language: languageRef.current,
+      });
       setOutput(response.data.output);
     } catch (err) {
       console.log(err);
@@ -330,8 +325,7 @@ int main() {
     setMessage("");
   };
 
-  // FIX 3: Callback ref for remote videos — no useEffect needed, no flicker
-  // Each video element sets its own srcObject as soon as it mounts
+  /* Callback ref for remote videos — no useEffect, no flicker */
   const setRemoteVideoRef = (socketId) => (el) => {
     if (!el) return;
     const found = remoteStreams.find((s) => s.socketId === socketId);
@@ -389,7 +383,7 @@ int main() {
           <p>{user.role}</p>
         </div>
 
-        {/* REMOTE 1 — FIX 3: callback ref, no useEffect */}
+        {/* REMOTE 1 */}
         {remoteStreams[0] ? (
           <div
             style={{
@@ -412,8 +406,9 @@ int main() {
               }}
             />
             <h3 style={{ marginTop: "10px" }}>
-              {participants.find((p) => p.socketId === remoteStreams[0].socketId)
-                ?.name || "Participant"}
+              {participants.find(
+                (p) => p.socketId === remoteStreams[0].socketId
+              )?.name || "Participant"}
             </h3>
           </div>
         ) : (
@@ -432,7 +427,7 @@ int main() {
           </div>
         )}
 
-        {/* REMOTE 2 — FIX 3: callback ref, no useEffect */}
+        {/* REMOTE 2 */}
         {remoteStreams[1] ? (
           <div
             style={{
@@ -455,8 +450,9 @@ int main() {
               }}
             />
             <h3 style={{ marginTop: "10px" }}>
-              {participants.find((p) => p.socketId === remoteStreams[1].socketId)
-                ?.name || "Participant"}
+              {participants.find(
+                (p) => p.socketId === remoteStreams[1].socketId
+              )?.name || "Participant"}
             </h3>
           </div>
         ) : (
@@ -563,8 +559,18 @@ int main() {
               value={language}
               onChange={(e) => {
                 const newLanguage = e.target.value;
+                const newCode = defaultCodes[newLanguage];
+                // Update refs first — no re-render side effects
+                languageRef.current = newLanguage;
+                codeRef.current = newCode;
+                // Update state for UI
                 setLanguage(newLanguage);
-                setCode(defaultCodes[newLanguage]);
+                setCode(newCode);
+                // Emit immediately on language change
+                clearTimeout(editorDebounce.current);
+                editorDebounce.current = setTimeout(() => {
+                  emitEditorChange.current?.(newCode, newLanguage);
+                }, 100);
               }}
               style={{ padding: "12px", borderRadius: "10px" }}
             >
@@ -588,13 +594,20 @@ int main() {
             </button>
           </div>
 
-          {/* FIX 2: Use Monaco's own focus/blur events to track editing state */}
           <Editor
             height="550px"
             theme="vs-dark"
             language={language}
             value={code}
+            // keepCurrentModel prevents Monaco from remounting on language change
+            keepCurrentModel={false}
+            options={{
+              minimap: { enabled: false },
+              scrollBeyondLastLine: false,
+              fontSize: 14,
+            }}
             onMount={(editor) => {
+              // Track focus via Monaco's own events — reliable, no DOM hacks
               editor.onDidFocusEditorWidget(() => {
                 isEditingRef.current = true;
               });
@@ -602,7 +615,18 @@ int main() {
                 isEditingRef.current = false;
               });
             }}
-            onChange={(value) => setCode(value || "")}
+            onChange={(value) => {
+              const newCode = value || "";
+              // Update ref synchronously — no render
+              codeRef.current = newCode;
+              // Update state for controlled value display
+              setCode(newCode);
+              // Debounce the socket emit — does NOT trigger useEffect
+              clearTimeout(editorDebounce.current);
+              editorDebounce.current = setTimeout(() => {
+                emitEditorChange.current?.(newCode, languageRef.current);
+              }, 300);
+            }}
           />
         </div>
 
