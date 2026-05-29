@@ -606,53 +606,41 @@ socket.emit(
 
     /* NEW USER */
 
-    socket.on(
+   socket.on(
+  "user-joined",
+  async (participant) => {
 
-      "user-joined",
+    if (
+      participant.socketId ===
+      socket.id
+    ) return;
 
-      async (participant) => {
+    setParticipants(prev => {
 
-        if (
-          participant.socketId ===
-          socket.id
-        ) return;
-
-        setParticipants(
-          (prev) => {
-
-            const exists =
-              prev.find(
-
-                (p) =>
-
-                  p.socketId ===
-                  participant.socketId
-
-              );
-
-            if (exists)
-              return prev;
-
-            return [
-
-              ...prev,
-
-              participant
-
-            ];
-
-          }
+      const exists =
+        prev.find(
+          p =>
+            p.socketId ===
+            participant.socketId
         );
 
-        await createPeerConnection(
-  participant.socketId,
-  false
-);
+      if (exists)
+        return prev;
 
-      }
+      return [
+        ...prev,
+        participant
+      ];
 
+    });
+
+    await createPeerConnection(
+      participant.socketId,
+      true
     );
 
+  }
+);
     /* OFFER */
 
     socket.on(
