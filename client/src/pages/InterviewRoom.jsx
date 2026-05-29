@@ -851,29 +851,23 @@ socket.emit(
 
     /* EDITOR */
 
-    socket.on(
+   socket.on(
   "sync-editor",
   (data) => {
 
-    setCode(prev =>
+    if (
+      document.activeElement
+        ?.className
+        ?.includes("inputarea")
+    ) {
+      return;
+    }
 
-      prev === data.code
-        ? prev
-        : data.code
-
-    );
-
-    setLanguage(prev =>
-
-      prev === data.language
-        ? prev
-        : data.language
-
-    );
+    setCode(data.code);
+    setLanguage(data.language);
 
   }
 );
-
     /* LOGIC */
 
     socket.on(
